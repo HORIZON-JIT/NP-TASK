@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日報ビューア</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-light: #eff6ff;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text2: #64748b;
+    --border: #e2e8f0;
+    --accent1: #3b82f6;
+    --accent2: #10b981;
+    --accent3: #f59e0b;
+    --accent4: #ef4444;
+    --accent5: #8b5cf6;
+    --accent6: #ec4899;
+    --accent7: #14b8a6;
+    --accent8: #f97316;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: white;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left h1 { font-size: 22px; font-weight: 700; }
+  .header-left p { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .date-nav button {
+    width: 36px; height: 36px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .date-nav button:hover {
+    background: rgba(255,255,255,0.25);
+    border-color: rgba(255,255,255,0.5);
+  }
+
+  .date-nav input[type="date"] {
+    padding: 8px 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    outline: none;
+  }
+
+  .date-nav input[type="date"]:focus {
+    border-color: rgba(255,255,255,0.6);
+  }
+
+  .date-nav input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+
+  .today-btn {
+    padding: 8px 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .today-btn:hover { background: rgba(255,255,255,0.25); }
+
+  .main { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; }
+
+  .loading {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text2);
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 20px 24px;
+    border-radius: 12px;
+    border: 1px solid #fecaca;
+    margin: 20px 0;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text2);
+    font-size: 16px;
+  }
+
+  .no-data .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .person-card {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .person-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 20px;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .person-info { flex: 1; }
+  .person-name { font-size: 18px; font-weight: 700; }
+  .person-meta { font-size: 13px; color: var(--text2); margin-top: 1px; }
+
+  .person-total { text-align: right; }
+
+  .person-total .hours {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .person-total .hours-label {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .category-group {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .category-group:last-child { border-bottom: none; }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    background: #f8fafc;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  .category-header:hover { background: #f1f5f9; }
+
+  .category-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .category-name {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+  }
+
+  .category-stats {
+    font-size: 13px;
+    color: var(--text2);
+    display: flex;
+    gap: 12px;
+  }
+
+  .category-toggle {
+    color: var(--text2);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+
+  .category-group.collapsed .category-toggle { transform: rotate(-90deg); }
+  .category-group.collapsed .task-rows { display: none; }
+
+  .task-rows { padding: 0; }
+
+  .task-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 24px 10px 48px;
+    border-top: 1px solid #f1f5f9;
+    transition: background 0.1s;
+    gap: 12px;
+  }
+
+  .task-row:hover { background: #fafbfd; }
+
+  .task-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .task-hours {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: right;
+  }
+
+  .task-hours.empty {
+    color: #cbd5e1;
+    font-weight: 400;
+  }
+
+  .hours-bar-container {
+    width: 120px;
+    flex-shrink: 0;
+  }
+
+  .hours-bar {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .hours-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .task-status {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 56px;
+    text-align: center;
+  }
+
+  .st-完了 { background: #dcfce7; color: #15803d; }
+  .st-作業中 { background: #fef9c3; color: #a16207; }
+  .st-未着手 { background: #f1f5f9; color: #64748b; }
+  .st-確認待 { background: #dbeafe; color: #1d4ed8; }
+  .st-default { background: #f1f5f9; color: #64748b; }
+
+  .person-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    padding: 12px 24px;
+    background: #f8fafc;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .person-footer strong { color: var(--text); }
+
+  .daily-total {
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    border-radius: 16px;
+    padding: 24px 32px;
+    color: white;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .daily-total-item { text-align: center; }
+
+  .daily-total-item .val {
+    font-size: 36px;
+    font-weight: 800;
+  }
+
+  .daily-total-item .lbl {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .header { padding: 16px; }
+    .main { padding: 16px; }
+    .task-row { padding-left: 24px; flex-wrap: wrap; }
+    .hours-bar-container { display: none; }
+    .daily-total { padding: 20px; }
+    .daily-total-item .val { font-size: 28px; }
+    .person-header { padding: 14px 16px; }
+    .category-header { padding: 10px 16px; }
+    .task-row { padding: 10px 16px 10px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>日報ビューア</h1>
+    <p>誰が、どの種別で、何をしたか - 1日の振り返り</p>
+  </div>
+  <div class="date-nav">
+    <button onclick="changeDate(-1)" title="前日">◀</button>
+    <input type="date" id="dateInput" />
+    <button onclick="changeDate(1)" title="翌日">▶</button>
+    <button class="today-btn" onclick="goToday()">今日</button>
+  </div>
+</div>
+
+<div class="main" id="main">
+  <div class="loading">
+    <div class="spinner"></div>
+    <div>スプレッドシートからデータを読み込み中...</div>
+  </div>
+</div>
+
+<script>
+const CATEGORY_COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316',
+];
+
+const AVATAR_COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316',
+  '#6366f1', '#84cc16',
+];
+
+let allData = [];
+let categoryColorMap = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('dateInput').value = today();
+  document.getElementById('dateInput').addEventListener('change', render);
+  fetchData();
+});
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function changeDate(delta) {
+  var input = document.getElementById('dateInput');
+  var d = new Date(input.value);
+  d.setDate(d.getDate() + delta);
+  input.value = d.toISOString().split('T')[0];
+  render();
+}
+
+function goToday() {
+  document.getElementById('dateInput').value = today();
+  render();
+}
+
+function fetchData() {
+  google.script.run
+    .withSuccessHandler(function(json) {
+      if (!json || !json.length) {
+        document.getElementById('main').innerHTML =
+          '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+        return;
+      }
+      allData = json.map(function(r) {
+        return {
+          id: r.id,
+          registeredAt: r.registeredAt || '',
+          name: r.name || '',
+          email: r.email || '',
+          taskId: r.taskId || '',
+          taskName: r.taskName || '',
+          categoryId: r.categoryId || '',
+          categoryName: r.categoryName || '',
+          hours: parseFloat(r.hours) || 0,
+          status: r.status || '',
+          remarks: r.remarks || '',
+          actualHours: parseFloat(r.actualHours) || 0,
+        };
+      });
+      var cats = [];
+      var seen = {};
+      allData.forEach(function(r) {
+        if (r.categoryName && !seen[r.categoryName]) {
+          seen[r.categoryName] = true;
+          cats.push(r.categoryName);
+        }
+      });
+      cats.sort();
+      cats.forEach(function(c, i) {
+        categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+      });
+      render();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('main').innerHTML =
+        '<div class="error-msg">データの読み込みに失敗しました: ' + esc(err.message) + '</div>';
+    })
+    .getDailyReportData();
+}
+
+function parseRowDate(raw) {
+  if (!raw) return null;
+  var m = raw.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+  return null;
+}
+
+function matchesDate(row, dateStr) {
+  var target = dateStr.split('-').map(Number);
+  var rd = parseRowDate(row.registeredAt);
+  if (!rd) return false;
+  return rd.y === target[0] && rd.m === target[1] && rd.d === target[2];
+}
+
+function extractTime(raw) {
+  if (!raw) return '';
+  var m = raw.match(/(\d{1,2}):(\d{2})/);
+  if (m) return ('0' + m[1]).slice(-2) + ':' + m[2];
+  return '';
+}
+
+function render() {
+  var dateStr = document.getElementById('dateInput').value;
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
+  var main = document.getElementById('main');
+
+  if (data.length === 0) {
+    main.innerHTML = '<div class="no-data">' +
+      '<div class="icon">📋</div>' +
+      '<div>' + formatDateJP(dateStr) + ' のデータはありません</div>' +
+      '<div style="margin-top:8px;font-size:14px;color:#94a3b8">日付を変更してみてください</div>' +
+      '</div>';
+    return;
+  }
+
+  var byPerson = {};
+  data.forEach(function(r) {
+    var pName = r.name || '(不明)';
+    if (!byPerson[pName]) byPerson[pName] = { email: r.email, categories: {} };
+    var cat = r.categoryName || '(その他)';
+    if (!byPerson[pName].categories[cat]) byPerson[pName].categories[cat] = [];
+    byPerson[pName].categories[cat].push(r);
+  });
+
+  var totalPeople = Object.keys(byPerson).length;
+  var totalTasks = data.length;
+  var totalActual = 0;
+  var maxActualPerTask = 0;
+  data.forEach(function(r) {
+    totalActual += r.actualHours;
+    if (r.actualHours > maxActualPerTask) maxActualPerTask = r.actualHours;
+  });
+  if (maxActualPerTask === 0) maxActualPerTask = 1;
+
+  var html = '<div class="daily-total">' +
+    '<div class="daily-total-item"><div class="val">' + totalPeople + '</div><div class="lbl">担当者</div></div>' +
+    '<div class="daily-total-item"><div class="val">' + totalTasks + '</div><div class="lbl">タスク</div></div>' +
+    '<div class="daily-total-item"><div class="val">' + totalActual.toFixed(1) + 'h</div><div class="lbl">実績工数 合計</div></div>' +
+    '</div>';
+
+  var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
+    var ha = 0, hb = 0;
+    Object.keys(byPerson[a].categories).forEach(function(c) {
+      byPerson[a].categories[c].forEach(function(r) { ha += r.actualHours; });
+    });
+    Object.keys(byPerson[b].categories).forEach(function(c) {
+      byPerson[b].categories[c].forEach(function(r) { hb += r.actualHours; });
+    });
+    return hb - ha;
+  });
+
+  sortedPeople.forEach(function(name, pIdx) {
+    var info = byPerson[name];
+    var personActual = 0;
+    var personTasks = 0;
+    Object.keys(info.categories).forEach(function(c) {
+      info.categories[c].forEach(function(r) {
+        personActual += r.actualHours;
+        personTasks++;
+      });
+    });
+    var avatarColor = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
+
+    html += '<div class="person-card">' +
+      '<div class="person-header">' +
+      '<div class="avatar" style="background:' + avatarColor + '">' + esc(name.charAt(0)) + '</div>' +
+      '<div class="person-info">' +
+      '<div class="person-name">' + esc(name) + '</div>' +
+      '<div class="person-meta">' + esc(info.email) + ' ・ ' + personTasks + '件</div>' +
+      '</div>' +
+      '<div class="person-total">' +
+      '<div class="hours">' + personActual.toFixed(1) + '<span style="font-size:16px;font-weight:400">h</span></div>' +
+      '<div class="hours-label">実績工数</div>' +
+      '</div></div>';
+
+    var sortedCats = Object.keys(info.categories).sort(function(a, b) {
+      var ha = 0, hb = 0;
+      info.categories[a].forEach(function(r) { ha += r.actualHours; });
+      info.categories[b].forEach(function(r) { hb += r.actualHours; });
+      return hb - ha;
+    });
+
+    sortedCats.forEach(function(cat) {
+      var tasks = info.categories[cat];
+      var catColor = categoryColorMap[cat] || '#94a3b8';
+      var catActual = 0;
+      tasks.forEach(function(r) { catActual += r.actualHours; });
+
+      html += '<div class="category-group">' +
+        '<div class="category-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">' +
+        '<div class="category-dot" style="background:' + catColor + '"></div>' +
+        '<div class="category-name">' + esc(cat) + '</div>' +
+        '<div class="category-stats">' +
+        '<span>' + tasks.length + '件</span>' +
+        '<span>' + catActual.toFixed(1) + 'h</span>' +
+        '</div>' +
+        '<div class="category-toggle">▼</div>' +
+        '</div><div class="task-rows">';
+
+      tasks.sort(function(a, b) {
+        return extractTime(a.registeredAt).localeCompare(extractTime(b.registeredAt));
+      });
+
+      tasks.forEach(function(task) {
+        var time = extractTime(task.registeredAt);
+        var hoursText = task.actualHours > 0 ? task.actualHours.toFixed(2) + ' h' : '—';
+        var hoursClass = task.actualHours > 0 ? '' : ' empty';
+        var barPct = (task.actualHours / maxActualPerTask * 100);
+        var stClass = ['完了','作業中','未着手','確認待'].indexOf(task.status) >= 0 ? 'st-' + task.status : 'st-default';
+
+        html += '<div class="task-row">' +
+          '<div style="color:var(--text2);font-size:12px;font-family:monospace;min-width:44px">' + time + '</div>' +
+          '<div class="task-name" title="' + esc(task.taskName) + '">' + esc(task.taskName || '-') + '</div>' +
+          '<div class="task-status ' + stClass + '">' + esc(task.status || '-') + '</div>' +
+          '<div class="hours-bar-container"><div class="hours-bar"><div class="hours-bar-fill" style="width:' + barPct + '%;background:' + catColor + '"></div></div></div>' +
+          '<div class="task-hours' + hoursClass + '">' + hoursText + '</div>' +
+          '</div>';
+      });
+
+      html += '</div></div>';
+    });
+
+    html += '<div class="person-footer">' +
+      '<span>タスク合計: <strong>' + personTasks + '件</strong></span>' +
+      '<span>実績工数: <strong>' + personActual.toFixed(1) + 'h</strong></span>' +
+      '</div></div>';
+  });
+
+  main.innerHTML = html;
+}
+
+function formatDateJP(dateStr) {
+  var parts = dateStr.split('-');
+  var days = ['日','月','火','水','木','金','土'];
+  var dow = new Date(+parts[0], +parts[1] - 1, +parts[2]).getDay();
+  return +parts[1] + '月' + +parts[2] + '日（' + days[dow] + '）';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
