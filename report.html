@@ -416,6 +416,38 @@ function goToday() {
   render();
 }
 
+// Parse hours from various formats:
+// - number: 0.5 → 0.5
+// - HH:MM string: "0:30" → 0.5, "1:00" → 1.0
+// - GAS Date serialization (1899-12-30 epoch): "1899-12-30T00:30:00..." → 0.5
+// - fractional day number: 0.020833 → 0.5 (auto-detect if < 1 and has many decimals)
+function parseHoursValue(val) {
+  if (val == null || val === '') return 0;
+  if (typeof val === 'number') {
+    // GAS may pass time values as fractional days (e.g., 0:30 = 0.020833)
+    // Heuristic: if value is between 0 and 1 exclusive, treat as fraction of 24h
+    // But actual hours like 0.5 could also appear. Check if it looks like a day fraction.
+    // Day fractions for typical work hours: 0:05=0.00347, 0:30=0.02083, 1:00=0.04167, 8:00=0.33333
+    // Actual hours: 0.25, 0.5, 1.0, 8.0
+    // If val < 0.042 (≈1h as day fraction), it's ambiguous, but real hours are usually >= 0.25
+    // Safe rule: if val > 0 && val < 0.042, it's likely a day fraction
+    if (val > 0 && val < 0.042) return Math.round(val * 24 * 60) / 60;
+    return val;
+  }
+  var s = String(val);
+  // Match HH:MM or H:MM format
+  var hm = s.match(/(\d+):(\d{2})(?::(\d{2}))?$/);
+  if (hm) return parseInt(hm[1], 10) + parseInt(hm[2], 10) / 60;
+  // Match ISO date from GAS Date serialization (1899-12-30T...)
+  var iso = s.match(/1899-12-\d{2}T(\d{2}):(\d{2})/);
+  if (iso) return parseInt(iso[1], 10) + parseInt(iso[2], 10) / 60;
+  // Match any date string with time component
+  var dt = s.match(/\b(\d{1,2}):(\d{2}):\d{2}\b/);
+  if (dt) return parseInt(dt[1], 10) + parseInt(dt[2], 10) / 60;
+  var n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
 function onDataLoaded(json) {
   // Robustly ensure json is an array (handle string, double-stringify, etc.)
   if (typeof json === 'string') {
@@ -442,10 +474,10 @@ function onDataLoaded(json) {
       taskName: r.taskName || '',
       categoryId: r.categoryId || '',
       categoryName: r.categoryName || '',
-      hours: parseFloat(r.hours) || 0,
+      hours: parseHoursValue(r.hours),
       status: r.status || '',
       remarks: r.remarks || '',
-      actualHours: parseFloat(r.actualHours) || 0,
+      actualHours: parseHoursValue(r.actualHours),
     };
   });
   var cats = [];
