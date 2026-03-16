@@ -423,6 +423,12 @@
 </div>
 
 <script>
+// GitHub Pages等の外部ホスティングの場合、GASの日報ビューアにリダイレクト
+if (typeof google === 'undefined' || !google.script) {
+  var GAS_REPORT_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=report';
+  window.location.replace(GAS_REPORT_URL);
+}
+
 const CATEGORY_COLORS = [
   'var(--accent1)', 'var(--accent2)', 'var(--accent3)', 'var(--accent4)',
   'var(--accent5)', 'var(--accent6)', 'var(--accent7)', 'var(--accent8)',
