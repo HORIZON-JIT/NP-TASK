@@ -416,8 +416,6 @@ function goToday() {
   render();
 }
 
-var API_URL = 'https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
-
 function onDataLoaded(json) {
   console.log('Data received:', json ? json.length : 'null/undefined', 'rows');
   if (json && json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
@@ -469,27 +467,20 @@ function fetchData() {
     google.script.run
       .withSuccessHandler(function(json) {
         if (!json || !json.length) {
-          console.log('google.script.run returned empty, falling back to API...');
-          fetchViaApi();
+          console.log('google.script.run returned empty data');
+          onDataLoaded([]);
         } else {
           onDataLoaded(json);
         }
       })
       .withFailureHandler(function(err) {
-        console.log('google.script.run failed, falling back to API...', err);
-        fetchViaApi();
+        console.error('google.script.run failed:', err);
+        onDataError(err);
       })
       .getDailyReportData();
   } else {
-    fetchViaApi();
+    onDataError(new Error('google.script.run is not available. This page must be served from Google Apps Script.'));
   }
-}
-
-function fetchViaApi() {
-  fetch(API_URL)
-    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(onDataLoaded)
-    .catch(onDataError);
 }
 
 function parseRowDate(raw) {
