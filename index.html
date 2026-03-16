@@ -460,31 +460,46 @@ function goToday() {
   render();
 }
 
+const API_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
+
+function onDataLoaded(json) {
+  if (!json || !json.length) {
+    document.getElementById('main').innerHTML =
+      '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+    return;
+  }
+  allData = json.map(r => ({
+    ...r,
+    hours: parseFloat(r.hours) || 0,
+    actualHours: parseFloat(r.actualHours) || 0,
+  }));
+
+  const cats = [...new Set(allData.map(r => r.categoryName).filter(Boolean))].sort();
+  cats.forEach((c, i) => { categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+
+  render();
+}
+
+function onDataError(err) {
+  const msg = (err && err.message) ? err.message : String(err);
+  document.getElementById('main').innerHTML =
+    '<div class="error-msg">データの読み込みに失敗しました: ' + esc(msg) + '</div>';
+}
+
 function fetchData() {
-  google.script.run
-    .withSuccessHandler(function(json) {
-      if (!json || !json.length) {
-        document.getElementById('main').innerHTML =
-          '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
-        return;
-      }
-      allData = json.map(r => ({
-        ...r,
-        hours: parseFloat(r.hours) || 0,
-        actualHours: parseFloat(r.actualHours) || 0,
-      }));
-
-      // Build category color map
-      const cats = [...new Set(allData.map(r => r.categoryName).filter(Boolean))].sort();
-      cats.forEach((c, i) => { categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-
-      render();
-    })
-    .withFailureHandler(function(err) {
-      document.getElementById('main').innerHTML =
-        '<div class="error-msg">データの読み込みに失敗しました: ' + esc(err.message) + '</div>';
-    })
-    .getDailyReportData();
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    // GAS内から配信された場合（ログイン認証済み）
+    google.script.run
+      .withSuccessHandler(onDataLoaded)
+      .withFailureHandler(onDataError)
+      .getDailyReportData();
+  } else {
+    // GitHub Pages等の外部ホスティングの場合
+    fetch(API_URL)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(onDataLoaded)
+      .catch(onDataError);
+  }
 }
 
 function parseRowDate(raw) {
