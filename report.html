@@ -544,7 +544,7 @@ function extractTime(raw) {
 
 function render() {
   var dateStr = document.getElementById('dateInput').value;
-  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr) && r.actualHours > 0; });
   var main = document.getElementById('main');
 
   if (data.length === 0) {
