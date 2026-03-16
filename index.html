@@ -425,7 +425,7 @@
 <script>
 // GitHub Pages等の外部ホスティングの場合、GASの日報ビューアにリダイレクト
 if (typeof google === 'undefined' || !google.script) {
-  var GAS_REPORT_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=report';
+  var GAS_REPORT_URL = 'https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=report';
   window.location.replace(GAS_REPORT_URL);
 }
 
@@ -466,7 +466,7 @@ function goToday() {
   render();
 }
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
+const API_URL = 'https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
 
 function onDataLoaded(json) {
   if (!json || !json.length) {
