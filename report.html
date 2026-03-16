@@ -417,9 +417,17 @@ function goToday() {
 }
 
 function onDataLoaded(json) {
-  console.log('Data received:', json ? json.length : 'null/undefined', 'rows');
-  if (json && json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
-  if (!json || !json.length) {
+  // Robustly ensure json is an array (handle string, double-stringify, etc.)
+  if (typeof json === 'string') {
+    try { json = JSON.parse(json); } catch(e) { json = []; }
+  }
+  if (typeof json === 'string') {
+    try { json = JSON.parse(json); } catch(e) { json = []; }
+  }
+  if (!Array.isArray(json)) json = [];
+  console.log('Data received:', json.length, 'rows');
+  if (json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
+  if (json.length === 0) {
     document.getElementById('main').innerHTML =
       '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
     return;
@@ -468,14 +476,8 @@ function fetchData() {
     '<div class="no-data"><div class="icon">⏳</div><div>データ読み込み中...</div></div>';
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
-      .withSuccessHandler(function(jsonStr) {
-        try {
-          var data = (typeof jsonStr === 'string') ? JSON.parse(jsonStr) : jsonStr;
-          onDataLoaded(data || []);
-        } catch(e) {
-          console.error('JSON parse error:', e);
-          onDataError(e);
-        }
+      .withSuccessHandler(function(data) {
+        onDataLoaded(data);
       })
       .withFailureHandler(function(err) {
         console.error('google.script.run failed:', err);
@@ -510,7 +512,7 @@ function extractTime(raw) {
 
 function render() {
   var dateStr = document.getElementById('dateInput').value;
-  var data = allData;
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
   var main = document.getElementById('main');
 
   if (data.length === 0) {
