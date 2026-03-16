@@ -424,10 +424,11 @@ function fetchData() {
           '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
         return;
       }
+      console.log('Raw data sample:', JSON.stringify(json.slice(0, 3)));
       allData = json.map(function(r) {
         return {
           id: r.id,
-          registeredAt: r.registeredAt || '',
+          registeredAt: r.dueDate || r.registeredAt || '',
           name: r.name || '',
           email: r.email || '',
           taskId: r.taskId || '',
@@ -440,6 +441,7 @@ function fetchData() {
           actualHours: parseFloat(r.actualHours) || 0,
         };
       });
+      console.log('allData sample:', JSON.stringify(allData.slice(0, 3)));
       var cats = [];
       var seen = {};
       allData.forEach(function(r) {
