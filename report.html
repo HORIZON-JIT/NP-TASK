@@ -416,59 +416,80 @@ function goToday() {
   render();
 }
 
+var API_URL = 'https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
+
+function onDataLoaded(json) {
+  console.log('Data received:', json ? json.length : 'null/undefined', 'rows');
+  if (json && json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
+  if (!json || !json.length) {
+    document.getElementById('main').innerHTML =
+      '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+    return;
+  }
+  allData = json.map(function(r) {
+    return {
+      id: r.id,
+      registeredAt: r.dueDate || r.registeredAt || '',
+      name: r.name || '',
+      email: r.email || '',
+      taskId: r.taskId || '',
+      taskName: r.taskName || '',
+      categoryId: r.categoryId || '',
+      categoryName: r.categoryName || '',
+      hours: parseFloat(r.hours) || 0,
+      status: r.status || '',
+      remarks: r.remarks || '',
+      actualHours: parseFloat(r.actualHours) || 0,
+    };
+  });
+  var cats = [];
+  var seen = {};
+  allData.forEach(function(r) {
+    if (r.categoryName && !seen[r.categoryName]) {
+      seen[r.categoryName] = true;
+      cats.push(r.categoryName);
+    }
+  });
+  cats.sort();
+  cats.forEach(function(c, i) {
+    categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+  });
+  render();
+}
+
+function onDataError(err) {
+  console.error('Data fetch error:', err);
+  var msg = (err && err.message) ? err.message : String(err);
+  document.getElementById('main').innerHTML =
+    '<div class="no-data"><div class="icon">📋</div><div>データ取得エラー: ' + msg + '</div></div>';
+}
+
 function fetchData() {
-  console.log('fetchData called, calling getDailyReportData...');
-  google.script.run
-    .withFailureHandler(function(err) {
-      console.error('getDailyReportData FAILED:', err);
-      document.getElementById('main').innerHTML =
-        '<div class="no-data"><div class="icon">📋</div><div>データ取得エラー: ' + (err.message || err) + '</div></div>';
-    })
-    .withSuccessHandler(function(json) {
-      console.log('getDailyReportData returned:', typeof json, json ? json.length : 'null/undefined');
-      if (json && json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
-      if (!json || !json.length) {
-        document.getElementById('main').innerHTML =
-          '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
-        return;
-      }
-      console.log('Raw data sample:', JSON.stringify(json.slice(0, 3)));
-      allData = json.map(function(r) {
-        return {
-          id: r.id,
-          registeredAt: r.dueDate || r.registeredAt || '',
-          name: r.name || '',
-          email: r.email || '',
-          taskId: r.taskId || '',
-          taskName: r.taskName || '',
-          categoryId: r.categoryId || '',
-          categoryName: r.categoryName || '',
-          hours: parseFloat(r.hours) || 0,
-          status: r.status || '',
-          remarks: r.remarks || '',
-          actualHours: parseFloat(r.actualHours) || 0,
-        };
-      });
-      console.log('allData sample:', JSON.stringify(allData.slice(0, 3)));
-      var cats = [];
-      var seen = {};
-      allData.forEach(function(r) {
-        if (r.categoryName && !seen[r.categoryName]) {
-          seen[r.categoryName] = true;
-          cats.push(r.categoryName);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(json) {
+        if (!json || !json.length) {
+          console.log('google.script.run returned empty, falling back to API...');
+          fetchViaApi();
+        } else {
+          onDataLoaded(json);
         }
-      });
-      cats.sort();
-      cats.forEach(function(c, i) {
-        categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-      });
-      render();
-    })
-    .withFailureHandler(function(err) {
-      document.getElementById('main').innerHTML =
-        '<div class="error-msg">データの読み込みに失敗しました: ' + esc(err.message) + '</div>';
-    })
-    .getDailyReportData();
+      })
+      .withFailureHandler(function(err) {
+        console.log('google.script.run failed, falling back to API...', err);
+        fetchViaApi();
+      })
+      .getDailyReportData();
+  } else {
+    fetchViaApi();
+  }
+}
+
+function fetchViaApi() {
+  fetch(API_URL)
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(onDataLoaded)
+    .catch(onDataError);
 }
 
 function parseRowDate(raw) {
