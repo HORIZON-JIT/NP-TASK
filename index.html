@@ -423,8 +423,7 @@
 </div>
 
 <script>
-const SHEET_ID = '1OxADkPrsytN7o7yKKHQwDIyUfBD1Nn5HcFHb18dnNDc';
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const API_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
 
 const CATEGORY_COLORS = [
   'var(--accent1)', 'var(--accent2)', 'var(--accent3)', 'var(--accent4)',
@@ -463,92 +462,19 @@ function goToday() {
   render();
 }
 
-// ── CSV parser (handles quoted fields with commas/newlines) ──
-function parseCSV(text) {
-  const rows = [];
-  let i = 0;
-  while (i < text.length) {
-    const row = [];
-    while (i < text.length) {
-      if (text[i] === '"') {
-        // Quoted field
-        i++;
-        let field = '';
-        while (i < text.length) {
-          if (text[i] === '"') {
-            if (i + 1 < text.length && text[i + 1] === '"') {
-              field += '"';
-              i += 2;
-            } else {
-              i++; // closing quote
-              break;
-            }
-          } else {
-            field += text[i];
-            i++;
-          }
-        }
-        row.push(field);
-      } else {
-        // Unquoted field
-        let field = '';
-        while (i < text.length && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
-          field += text[i];
-          i++;
-        }
-        row.push(field);
-      }
-      if (i < text.length && text[i] === ',') {
-        i++; // skip comma
-      } else {
-        break; // end of row
-      }
-    }
-    // Skip line endings
-    if (i < text.length && text[i] === '\r') i++;
-    if (i < text.length && text[i] === '\n') i++;
-    if (row.length > 1 || (row.length === 1 && row[0] !== '')) {
-      rows.push(row);
-    }
-  }
-  return rows;
-}
-
 async function fetchData() {
   try {
-    const resp = await fetch(CSV_URL);
+    const resp = await fetch(API_URL);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const text = await resp.text();
-    const rows = parseCSV(text);
+    const json = await resp.json();
 
-    if (rows.length < 2) throw new Error('データが空です');
+    if (!json.length) throw new Error('データが空です');
 
-    // Skip header row (row 0), parse data rows
-    // Columns: A:ID, B:登録日時, C:期日, D:メール, E:担当者氏名,
-    //          F:タスクID, G:タスク名, H:種別ID, I:種別名, J:工数,
-    //          K:進捗ステータス, L:備考, M:手順書URL, N:優先度, O:実績工数
-    allData = [];
-    for (let i = 1; i < rows.length; i++) {
-      const c = rows[i];
-      if (!c[0]) continue; // skip empty rows
-      allData.push({
-        id: c[0] || '',
-        registeredAt: c[1] || '',
-        dueDate: c[2] || '',
-        email: c[3] || '',
-        name: c[4] || '',
-        taskId: c[5] || '',
-        taskName: c[6] || '',
-        categoryId: c[7] || '',
-        categoryName: c[8] || '',
-        hours: parseFloat(c[9]) || 0,
-        status: c[10] || '',
-        remarks: c[11] || '',
-        manualUrl: c[12] || '',
-        priority: c[13] || '',
-        actualHours: parseFloat(c[14]) || 0,
-      });
-    }
+    allData = json.map(r => ({
+      ...r,
+      hours: parseFloat(r.hours) || 0,
+      actualHours: parseFloat(r.actualHours) || 0,
+    }));
 
     // Build category color map
     const cats = [...new Set(allData.map(r => r.categoryName).filter(Boolean))].sort();
@@ -557,8 +483,7 @@ async function fetchData() {
     render();
   } catch (err) {
     document.getElementById('main').innerHTML =
-      `<div class="error-msg">データの読み込みに失敗しました: ${esc(err.message)}<br><br>
-       スプレッドシートが「リンクを知っている全員が閲覧可能」に設定されているか確認してください。</div>`;
+      `<div class="error-msg">データの読み込みに失敗しました: ${esc(err.message)}</div>`;
   }
 }
 
