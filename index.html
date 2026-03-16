@@ -423,8 +423,6 @@
 </div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=api';
-
 const CATEGORY_COLORS = [
   'var(--accent1)', 'var(--accent2)', 'var(--accent3)', 'var(--accent4)',
   'var(--accent5)', 'var(--accent6)', 'var(--accent7)', 'var(--accent8)',
@@ -462,29 +460,31 @@ function goToday() {
   render();
 }
 
-async function fetchData() {
-  try {
-    const resp = await fetch(API_URL);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json();
+function fetchData() {
+  google.script.run
+    .withSuccessHandler(function(json) {
+      if (!json || !json.length) {
+        document.getElementById('main').innerHTML =
+          '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+        return;
+      }
+      allData = json.map(r => ({
+        ...r,
+        hours: parseFloat(r.hours) || 0,
+        actualHours: parseFloat(r.actualHours) || 0,
+      }));
 
-    if (!json.length) throw new Error('データが空です');
+      // Build category color map
+      const cats = [...new Set(allData.map(r => r.categoryName).filter(Boolean))].sort();
+      cats.forEach((c, i) => { categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
 
-    allData = json.map(r => ({
-      ...r,
-      hours: parseFloat(r.hours) || 0,
-      actualHours: parseFloat(r.actualHours) || 0,
-    }));
-
-    // Build category color map
-    const cats = [...new Set(allData.map(r => r.categoryName).filter(Boolean))].sort();
-    cats.forEach((c, i) => { categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-
-    render();
-  } catch (err) {
-    document.getElementById('main').innerHTML =
-      `<div class="error-msg">データの読み込みに失敗しました: ${esc(err.message)}</div>`;
-  }
+      render();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('main').innerHTML =
+        '<div class="error-msg">データの読み込みに失敗しました: ' + esc(err.message) + '</div>';
+    })
+    .getDailyReportData();
 }
 
 function parseRowDate(raw) {
