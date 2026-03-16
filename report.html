@@ -417,8 +417,16 @@ function goToday() {
 }
 
 function fetchData() {
+  console.log('fetchData called, calling getDailyReportData...');
   google.script.run
+    .withFailureHandler(function(err) {
+      console.error('getDailyReportData FAILED:', err);
+      document.getElementById('main').innerHTML =
+        '<div class="no-data"><div class="icon">📋</div><div>データ取得エラー: ' + (err.message || err) + '</div></div>';
+    })
     .withSuccessHandler(function(json) {
+      console.log('getDailyReportData returned:', typeof json, json ? json.length : 'null/undefined');
+      if (json && json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
       if (!json || !json.length) {
         document.getElementById('main').innerHTML =
           '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
