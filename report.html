@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>日報ビューア</title>
+<title>黒板</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap');
 
@@ -143,6 +143,8 @@
     align-items: center;
     gap: 6px;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .sync-btn:hover { background: rgba(232,228,217,0.2); }
@@ -446,7 +448,7 @@
 
 <div class="header">
   <div class="header-left">
-    <h1>日報ビューア</h1>
+    <h1>黒板</h1>
     <p>誰が、どの種別で、何をしたか - 1日の振り返り</p>
   </div>
   <div class="date-nav">
@@ -487,10 +489,27 @@ const AVATAR_COLORS = [
 
 let allData = [];
 let categoryColorMap = {};
+var CACHE_KEY = 'reportDataCache';
+var CACHE_TS_KEY = 'reportDataCacheTs';
+var CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 document.addEventListener('DOMContentLoaded', function() {
   initDateSelectors();
-  fetchData();
+  // Try loading from cache first for instant display
+  var cached = null;
+  try {
+    var ts = +localStorage.getItem(CACHE_TS_KEY);
+    if (ts && (Date.now() - ts < CACHE_TTL)) {
+      cached = JSON.parse(localStorage.getItem(CACHE_KEY));
+    }
+  } catch(e) {}
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    onDataLoaded(cached, true);
+    // Background refresh
+    fetchData(null, true);
+  } else {
+    fetchData();
+  }
 });
 
 function initDateSelectors() {
@@ -606,7 +625,7 @@ function parseHoursValue(val) {
   return isNaN(n) ? 0 : n;
 }
 
-function onDataLoaded(json) {
+function onDataLoaded(json, fromCache) {
   if (typeof json === 'string') {
     try { json = JSON.parse(json); } catch(e) { json = []; }
   }
@@ -614,12 +633,21 @@ function onDataLoaded(json) {
     try { json = JSON.parse(json); } catch(e) { json = []; }
   }
   if (!Array.isArray(json)) json = [];
-  console.log('Data received:', json.length, 'rows');
+  console.log('Data received:', json.length, 'rows', fromCache ? '(cache)' : '(network)');
   if (json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
   if (json.length === 0) {
-    document.getElementById('main').innerHTML =
-      '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+    if (!fromCache) {
+      document.getElementById('main').innerHTML =
+        '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
+    }
     return;
+  }
+  // Save to cache
+  if (!fromCache) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(json));
+      localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+    } catch(e) {}
   }
   allData = json.map(function(r) {
     var actual = parseHoursValue(r.actualHours);
@@ -664,23 +692,25 @@ function onDataError(err) {
     '<div class="no-data"><div class="icon">📋</div><div>データ取得エラー: ' + msg + '</div></div>';
 }
 
-function fetchData(callback) {
-  document.getElementById('main').innerHTML =
-    '<div class="no-data"><div class="icon">⏳</div><div>データ読み込み中...</div></div>';
+function fetchData(callback, silent) {
+  if (!silent) {
+    document.getElementById('main').innerHTML =
+      '<div class="no-data"><div class="icon">⏳</div><div>データ読み込み中...</div></div>';
+  }
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(function(data) {
-        onDataLoaded(data);
+        onDataLoaded(data, false);
         if (callback) callback();
       })
       .withFailureHandler(function(err) {
         console.error('google.script.run failed:', err);
-        onDataError(err);
+        if (!silent) onDataError(err);
         if (callback) callback();
       })
       .getDailyReportData();
   } else {
-    onDataError(new Error('google.script.run is not available. This page must be served from Google Apps Script.'));
+    if (!silent) onDataError(new Error('google.script.run is not available. This page must be served from Google Apps Script.'));
     if (callback) callback();
   }
 }
