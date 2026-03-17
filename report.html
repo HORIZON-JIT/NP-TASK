@@ -113,6 +113,38 @@
 
   .today-btn:hover { background: rgba(232,228,217,0.2); }
 
+  .sync-btn {
+    padding: 8px 16px;
+    border: 2px solid rgba(232,228,217,0.3);
+    border-radius: 6px;
+    background: rgba(232,228,217,0.08);
+    color: var(--chalk);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+
+  .sync-btn:hover { background: rgba(232,228,217,0.2); }
+
+  .sync-btn.syncing {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  .sync-icon {
+    display: inline-block;
+    font-size: 15px;
+    transition: transform 0.3s;
+  }
+
+  .sync-btn.syncing .sync-icon {
+    animation: spin 0.7s linear infinite;
+  }
+
   .board-frame {
     background: var(--frame);
     margin: 24px;
@@ -434,6 +466,9 @@
     <input type="date" id="dateInput" />
     <button onclick="changeDate(1)" title="翌日">▶</button>
     <button class="today-btn" onclick="goToday()">今日</button>
+    <button class="sync-btn" id="syncBtn" onclick="syncData()" title="スプレッドシートと同期">
+      <span class="sync-icon">⟳</span>同期
+    </button>
   </div>
 </div>
 
@@ -482,6 +517,14 @@ function changeDate(delta) {
 function goToday() {
   document.getElementById('dateInput').value = today();
   render();
+}
+
+function syncData() {
+  var btn = document.getElementById('syncBtn');
+  btn.classList.add('syncing');
+  fetchData(function() {
+    btn.classList.remove('syncing');
+  });
 }
 
 // Parse hours from various formats
@@ -566,21 +609,24 @@ function onDataError(err) {
     '<div class="no-data"><div class="icon">📋</div><div>データ取得エラー: ' + msg + '</div></div>';
 }
 
-function fetchData() {
+function fetchData(callback) {
   document.getElementById('main').innerHTML =
     '<div class="no-data"><div class="icon">⏳</div><div>データ読み込み中...</div></div>';
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(function(data) {
         onDataLoaded(data);
+        if (callback) callback();
       })
       .withFailureHandler(function(err) {
         console.error('google.script.run failed:', err);
         onDataError(err);
+        if (callback) callback();
       })
       .getDailyReportData();
   } else {
     onDataError(new Error('google.script.run is not available. This page must be served from Google Apps Script.'));
+    if (callback) callback();
   }
 }
 
