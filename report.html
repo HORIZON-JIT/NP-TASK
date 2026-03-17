@@ -438,9 +438,18 @@ function parseHoursValue(val) {
   // Match HH:MM or H:MM format
   var hm = s.match(/(\d+):(\d{2})(?::(\d{2}))?$/);
   if (hm) return parseInt(hm[1], 10) + parseInt(hm[2], 10) / 60;
-  // Match ISO date from GAS Date serialization (1899-12-30T...)
-  var iso = s.match(/1899-12-\d{2}T(\d{2}):(\d{2})/);
-  if (iso) return parseInt(iso[1], 10) + parseInt(iso[2], 10) / 60;
+  // Match ISO date from GAS Date serialization (1899-12-30T... in UTC)
+  // GAS serializes time-only values as 1899-12-30 dates; timezone offset causes
+  // e.g. JST 1:00 → UTC 16:00 on 12/29. Convert properly via Date object.
+  var iso = s.match(/1899-12-\d{2}T\d{2}:\d{2}/);
+  if (iso) {
+    var d = new Date(s);
+    // Epoch for time-only: 1899-12-30 00:00:00 local = baseline
+    var baseline = new Date(1899, 11, 30, 0, 0, 0);
+    var diffMs = d.getTime() - baseline.getTime();
+    var hours = diffMs / (1000 * 60 * 60);
+    return Math.round(hours * 100) / 100;
+  }
   // Match any date string with time component
   var dt = s.match(/\b(\d{1,2}):(\d{2}):\d{2}\b/);
   if (dt) return parseInt(dt[1], 10) + parseInt(dt[2], 10) / 60;
