@@ -458,7 +458,13 @@ function onDataLoaded(json) {
   }
   if (!Array.isArray(json)) json = [];
   console.log('Data received:', json.length, 'rows');
-  if (json.length > 0) console.log('Sample row:', JSON.stringify(json[0]));
+  if (json.length > 0) {
+    console.log('Sample row:', JSON.stringify(json[0]));
+    console.log('First 5 rows completedDate:', json.slice(0, 5).map(function(r) { return r.completedDate; }));
+    var withCD = json.filter(function(r) { return r.completedDate; });
+    console.log('Rows with completedDate:', withCD.length);
+    if (withCD.length > 0) console.log('Sample completedDate values:', withCD.slice(0, 5).map(function(r) { return r.completedDate; }));
+  }
   if (json.length === 0) {
     document.getElementById('main').innerHTML =
       '<div class="no-data"><div class="icon">📋</div><div>データが取得できませんでした</div></div>';
@@ -544,7 +550,14 @@ function extractTime(raw) {
 
 function render() {
   var dateStr = document.getElementById('dateInput').value;
+  console.log('render() dateStr:', dateStr, 'allData length:', allData.length);
+  if (allData.length > 0) {
+    console.log('First 3 completedDate:', allData.slice(0, 3).map(function(r) { return r.completedDate; }));
+    var sample = allData.find(function(r) { return r.completedDate; });
+    if (sample) console.log('Sample completedDate:', JSON.stringify(sample.completedDate), 'parseRowDate:', JSON.stringify(parseRowDate(sample.completedDate)));
+  }
   var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
+  console.log('Filtered data length:', data.length);
   var main = document.getElementById('main');
 
   if (data.length === 0) {
