@@ -395,7 +395,7 @@ let categoryColorMap = {};
 
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('dateInput').value = today();
-  document.getElementById('dateInput').addEventListener('change', function() { fetchData(); });
+  document.getElementById('dateInput').addEventListener('change', function() { render(); });
   fetchData();
 });
 
@@ -408,12 +408,12 @@ function changeDate(delta) {
   var d = new Date(input.value);
   d.setDate(d.getDate() + delta);
   input.value = d.toISOString().split('T')[0];
-  fetchData();
+  render();
 }
 
 function goToday() {
   document.getElementById('dateInput').value = today();
-  fetchData();
+  render();
 }
 
 // Parse hours from various formats:
@@ -510,7 +510,6 @@ function onDataError(err) {
 }
 
 function fetchData() {
-  var dateStr = document.getElementById('dateInput').value;
   document.getElementById('main').innerHTML =
     '<div class="no-data"><div class="icon">⏳</div><div>データ読み込み中...</div></div>';
   if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -522,7 +521,7 @@ function fetchData() {
         console.error('google.script.run failed:', err);
         onDataError(err);
       })
-      .getDailyReportData(dateStr);
+      .getDailyReportData();
   } else {
     onDataError(new Error('google.script.run is not available. This page must be served from Google Apps Script.'));
   }
@@ -552,8 +551,8 @@ function extractTime(raw) {
 function render() {
   var dateStr = document.getElementById('dateInput').value;
   console.log('render() dateStr:', dateStr, 'allData length:', allData.length);
-  // Server already filters by date, so use all returned data
-  var data = allData;
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
+  console.log('Filtered by completedDate:', data.length, 'rows');
   var main = document.getElementById('main');
 
   if (data.length === 0) {
