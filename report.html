@@ -731,15 +731,21 @@ function render() {
 
   var html = '';
 
+  var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
+
   var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
-    var ha = 0, hb = 0;
-    Object.keys(byPerson[a].categories).forEach(function(c) {
-      byPerson[a].categories[c].forEach(function(r) { ha += r.displayHours; });
-    });
-    Object.keys(byPerson[b].categories).forEach(function(c) {
-      byPerson[b].categories[c].forEach(function(r) { hb += r.displayHours; });
-    });
-    return hb - ha;
+    var ia = -1, ib = -1;
+    for (var i = 0; i < PERSON_ORDER.length; i++) {
+      if (a.indexOf(PERSON_ORDER[i]) !== -1) { ia = i; break; }
+    }
+    for (var i = 0; i < PERSON_ORDER.length; i++) {
+      if (b.indexOf(PERSON_ORDER[i]) !== -1) { ib = i; break; }
+    }
+    // Known people by defined order; unknown people after 谷, sorted by name
+    if (ia === -1 && ib === -1) return a.localeCompare(b, 'ja');
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
   });
 
   sortedPeople.forEach(function(name, pIdx) {
