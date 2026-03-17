@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>黒板 - 1日の振り返り</title>
+<script>
+// GitHub Pages等の外部ホスティングの場合、描画前に即リダイレクト
+if (typeof google === 'undefined') {
+  window.location.replace('https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=report');
+}
+</script>
 <style>
   :root {
     --primary: #2563eb;
@@ -423,12 +429,6 @@
 </div>
 
 <script>
-// GitHub Pages等の外部ホスティングの場合、GASの黒板にリダイレクト
-if (typeof google === 'undefined' || !google.script) {
-  var GAS_REPORT_URL = 'https://script.google.com/a/macros/horizon.co.jp/s/AKfycbyEffBBWGzz_bhK-UesXuyZAAFVVlBx01KQd3cpLZRo9d9j8Yuw13pl6QE9NtsZ59SL2g/exec?page=report';
-  window.location.replace(GAS_REPORT_URL);
-}
-
 const CATEGORY_COLORS = [
   'var(--accent1)', 'var(--accent2)', 'var(--accent3)', 'var(--accent4)',
   'var(--accent5)', 'var(--accent6)', 'var(--accent7)', 'var(--accent8)',
