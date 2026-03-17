@@ -478,6 +478,7 @@ function onDataLoaded(json) {
       status: r.status || '',
       remarks: r.remarks || '',
       actualHours: parseHoursValue(r.actualHours),
+      completedDate: r.completedDate || '',
     };
   });
   var cats = [];
@@ -530,7 +531,7 @@ function parseRowDate(raw) {
 
 function matchesDate(row, dateStr) {
   var target = dateStr.split('-').map(Number);
-  var rd = parseRowDate(row.registeredAt);
+  var rd = parseRowDate(row.completedDate);
   if (!rd) return false;
   return rd.y === target[0] && rd.m === target[1] && rd.d === target[2];
 }
@@ -544,7 +545,7 @@ function extractTime(raw) {
 
 function render() {
   var dateStr = document.getElementById('dateInput').value;
-  var data = allData.filter(function(r) { return matchesDate(r, dateStr) && r.actualHours > 0; });
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
   var main = document.getElementById('main');
 
   if (data.length === 0) {
