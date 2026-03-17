@@ -395,7 +395,7 @@ let categoryColorMap = {};
 
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('dateInput').value = today();
-  document.getElementById('dateInput').addEventListener('change', render);
+  document.getElementById('dateInput').addEventListener('change', function() { render(); });
   fetchData();
 });
 
@@ -551,13 +551,8 @@ function extractTime(raw) {
 function render() {
   var dateStr = document.getElementById('dateInput').value;
   console.log('render() dateStr:', dateStr, 'allData length:', allData.length);
-  if (allData.length > 0) {
-    console.log('First 3 completedDate:', allData.slice(0, 3).map(function(r) { return r.completedDate; }));
-    var sample = allData.find(function(r) { return r.completedDate; });
-    if (sample) console.log('Sample completedDate:', JSON.stringify(sample.completedDate), 'parseRowDate:', JSON.stringify(parseRowDate(sample.completedDate)));
-  }
   var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
-  console.log('Filtered data length:', data.length);
+  console.log('Filtered by completedDate:', data.length, 'rows');
   var main = document.getElementById('main');
 
   if (data.length === 0) {
