@@ -270,6 +270,17 @@
     color: #cbd5e1;
     font-weight: 400;
   }
+  .task-hours.standard {
+    color: #94a3b8;
+    font-weight: 400;
+    font-style: italic;
+  }
+  .task-hours .std-label {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 400;
+    font-style: normal;
+  }
 
   .hours-bar-container {
     width: 120px;
@@ -480,6 +491,8 @@ function onDataLoaded(json) {
     return;
   }
   allData = json.map(function(r) {
+    var actual = parseHoursValue(r.actualHours);
+    var standard = parseHoursValue(r.hours);
     return {
       id: r.id,
       registeredAt: r.dueDate || r.registeredAt || '',
@@ -489,10 +502,12 @@ function onDataLoaded(json) {
       taskName: r.taskName || '',
       categoryId: r.categoryId || '',
       categoryName: r.categoryName || '',
-      hours: parseHoursValue(r.hours),
+      hours: standard,
       status: r.status || '',
       remarks: r.remarks || '',
-      actualHours: parseHoursValue(r.actualHours),
+      actualHours: actual,
+      displayHours: actual > 0 ? actual : standard,
+      isStandard: actual <= 0 && standard > 0,
       completedDate: r.completedDate || '',
     };
   });
@@ -587,8 +602,8 @@ function render() {
   var totalActual = 0;
   var maxActualPerTask = 0;
   data.forEach(function(r) {
-    totalActual += r.actualHours;
-    if (r.actualHours > maxActualPerTask) maxActualPerTask = r.actualHours;
+    totalActual += r.displayHours;
+    if (r.displayHours > maxActualPerTask) maxActualPerTask = r.displayHours;
   });
   if (maxActualPerTask === 0) maxActualPerTask = 1;
 
@@ -601,10 +616,10 @@ function render() {
   var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
     var ha = 0, hb = 0;
     Object.keys(byPerson[a].categories).forEach(function(c) {
-      byPerson[a].categories[c].forEach(function(r) { ha += r.actualHours; });
+      byPerson[a].categories[c].forEach(function(r) { ha += r.displayHours; });
     });
     Object.keys(byPerson[b].categories).forEach(function(c) {
-      byPerson[b].categories[c].forEach(function(r) { hb += r.actualHours; });
+      byPerson[b].categories[c].forEach(function(r) { hb += r.displayHours; });
     });
     return hb - ha;
   });
@@ -615,7 +630,7 @@ function render() {
     var personTasks = 0;
     Object.keys(info.categories).forEach(function(c) {
       info.categories[c].forEach(function(r) {
-        personActual += r.actualHours;
+        personActual += r.displayHours;
         personTasks++;
       });
     });
@@ -635,8 +650,8 @@ function render() {
 
     var sortedCats = Object.keys(info.categories).sort(function(a, b) {
       var ha = 0, hb = 0;
-      info.categories[a].forEach(function(r) { ha += r.actualHours; });
-      info.categories[b].forEach(function(r) { hb += r.actualHours; });
+      info.categories[a].forEach(function(r) { ha += r.displayHours; });
+      info.categories[b].forEach(function(r) { hb += r.displayHours; });
       return hb - ha;
     });
 
@@ -644,7 +659,7 @@ function render() {
       var tasks = info.categories[cat];
       var catColor = categoryColorMap[cat] || '#94a3b8';
       var catActual = 0;
-      tasks.forEach(function(r) { catActual += r.actualHours; });
+      tasks.forEach(function(r) { catActual += r.displayHours; });
 
       html += '<div class="category-group">' +
         '<div class="category-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">' +
@@ -663,9 +678,18 @@ function render() {
 
       tasks.forEach(function(task) {
         var time = extractTime(task.registeredAt);
-        var hoursText = task.actualHours > 0 ? task.actualHours.toFixed(2) + ' h' : '—';
-        var hoursClass = task.actualHours > 0 ? '' : ' empty';
-        var barPct = (task.actualHours / maxActualPerTask * 100);
+        var hoursText, hoursClass;
+        if (task.actualHours > 0) {
+          hoursText = task.actualHours.toFixed(2) + ' h';
+          hoursClass = '';
+        } else if (task.isStandard) {
+          hoursText = task.hours.toFixed(2) + ' h <span class="std-label">標準</span>';
+          hoursClass = ' standard';
+        } else {
+          hoursText = '—';
+          hoursClass = ' empty';
+        }
+        var barPct = (task.displayHours / maxActualPerTask * 100);
         var stClass = ['完了','作業中','未着手','確認待'].indexOf(task.status) >= 0 ? 'st-' + task.status : 'st-default';
 
         html += '<div class="task-row">' +
