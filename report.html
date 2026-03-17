@@ -62,7 +62,6 @@
   }
 
   .date-nav button {
-    width: 36px; height: 36px;
     border: 2px solid rgba(232,228,217,0.3);
     border-radius: 6px;
     background: rgba(232,228,217,0.08);
@@ -73,6 +72,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .date-nav .nav-btn {
+    width: 36px;
+    height: 36px;
   }
 
   .date-nav button:hover {
@@ -452,13 +456,13 @@
     <p>誰が、どの種別で、何をしたか - 1日の振り返り</p>
   </div>
   <div class="date-nav">
-    <button onclick="changeDate(-1)" title="前日">◀</button>
+    <button class="nav-btn" onclick="changeDate(-1)" title="前日">◀</button>
     <select id="selYear" onchange="onDateSelect()"></select>
     <span class="date-sep">/</span>
     <select id="selMonth" onchange="onMonthChange()"></select>
     <span class="date-sep">/</span>
     <select id="selDay" onchange="onDateSelect()"></select>
-    <button onclick="changeDate(1)" title="翌日">▶</button>
+    <button class="nav-btn" onclick="changeDate(1)" title="翌日">▶</button>
     <button class="today-btn" onclick="goToday()">今日</button>
     <button class="sync-btn" id="syncBtn" onclick="syncData()" title="スプレッドシートと同期">
       <span class="sync-icon">⟳</span>同期
