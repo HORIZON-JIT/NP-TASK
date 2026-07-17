@@ -510,31 +510,44 @@
     white-space: nowrap;
   }
 
-  /* variance bar: planned baseline vs actual overlay */
-  .cmp-bar {
-    flex: 1 1 120px;
+  /* variance bars: 予定 / 実績 を上下2本で並べて長さを直接比較 */
+  .cmp-bars {
+    flex: 1 1 160px;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bar-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bar-tag {
+    font-size: 9px;
+    width: 26px;
+    flex-shrink: 0;
+    text-align: right;
+    color: var(--chalk-dim);
+  }
+  .bar-tag.plan { color: var(--chalk-blue); }
+
+  .bar-track {
+    flex: 1;
     height: 8px;
-    min-width: 80px;
-    background: rgba(232,228,217,0.1);
+    background: rgba(232,228,217,0.08);
     border-radius: 4px;
-    position: relative;
     overflow: hidden;
   }
 
-  .cmp-bar .plan-mark {
-    position: absolute;
-    top: 0; bottom: 0;
-    width: 2px;
-    background: var(--chalk-blue);
-    z-index: 2;
-  }
-
-  .cmp-bar .actual-fill {
-    position: absolute;
-    top: 0; bottom: 0; left: 0;
+  .bar-fill {
+    height: 100%;
     border-radius: 4px;
-    z-index: 1;
+    min-width: 1px;
   }
+  .bar-fill.plan { background: var(--chalk-blue); }
 
   .compare-summary {
     display: flex;
@@ -1173,7 +1186,7 @@ function renderCompare() {
         ? '<span class="rate">(' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%)</span>'
         : '';
 
-      // バー: 予定位置マーカー + 実績塗り
+      // バー: 予定/実績を上下2本で並べ、同じ尺度(ユーザー内最大値)で長さを比較
       var actualPct = Math.min(100, t.actual / maxVal * 100);
       var planPct = Math.min(100, t.planned / maxVal * 100);
       var fillColor = cls === 'cmp-over' ? 'var(--chalk-pink)'
@@ -1182,9 +1195,11 @@ function renderCompare() {
       html += '<div class="compare-task-row">' +
         '<div class="cmp-name" title="' + esc(t.taskName) + '">' +
         '<span style="color:' + catColor + '">●</span> ' + esc(t.taskName) + ' ' + tag + '</div>' +
-        '<div class="cmp-bar">' +
-        '<div class="actual-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div>' +
-        '<div class="plan-mark" style="left:' + planPct.toFixed(1) + '%"></div>' +
+        '<div class="cmp-bars">' +
+        '<div class="bar-line"><span class="bar-tag plan">予定</span>' +
+        '<div class="bar-track"><div class="bar-fill plan" style="width:' + planPct.toFixed(1) + '%"></div></div></div>' +
+        '<div class="bar-line"><span class="bar-tag">実績</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div></div></div>' +
         '</div>' +
         '<div class="cmp-nums">' +
         '<div class="cmp-num cmp-plan"><span class="n">' + t.planned.toFixed(2) + '</span><span class="l">予定</span></div>' +
