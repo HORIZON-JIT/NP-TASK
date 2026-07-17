@@ -1086,8 +1086,9 @@ function renderCompare() {
         planned: 0, actual: 0, hasPlan: false,
       };
     }
-    // 予定は1見積りのため合算せず、最初の非ゼロ値を採用
-    if (!t.hasPlan && r.hours > 0) { t.planned = r.hours; t.hasPlan = true; }
+    // 1行=1件の作業ログ。予定(工数)も実績も各行に入るため、両方とも月内で合算する
+    t.planned += r.hours;
+    if (r.hours > 0) t.hasPlan = true;
     t.actual += r.actualHours;
   });
 
