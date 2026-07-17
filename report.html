@@ -439,8 +439,12 @@
     color: var(--chalk-bright);
   }
 
-  /* In compare mode, day selector is irrelevant */
-  body.compare-mode #selDay { display: none; }
+  /* 日集計でないとき（月集計や不要時）は日セレクタを隠す */
+  body.hide-day #selDay,
+  body.hide-day #sepDay { display: none; }
+
+  /* 集計単位トグル（予実比較のときだけ表示） */
+  body:not(.compare-mode) .scope-tabs { display: none; }
 
   /* --- Compare (予実比較) view --- */
   .compare-task-row {
@@ -500,6 +504,25 @@
   .cmp-over { color: var(--chalk-pink); }
   .cmp-under { color: var(--chalk-green); }
   .cmp-ontarget { color: var(--chalk-dim); }
+
+  .cmp-time {
+    font-size: 11px;
+    color: var(--chalk-dim);
+    font-family: 'Klee One', serif;
+    margin-right: 2px;
+  }
+
+  /* 備考（日別・個別表示のとき）: 行の下に全幅で折り返す */
+  .cmp-remarks {
+    flex: 1 1 100%;
+    font-size: 12px;
+    color: var(--chalk-dim);
+    padding-left: 18px;
+    margin-top: 2px;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .cmp-remarks::before { content: '📝 '; }
 
   .cmp-tag {
     font-size: 10px;
@@ -624,12 +647,16 @@
     <button class="view-tab active" id="tabDaily" onclick="setViewMode('daily')">日報</button>
     <button class="view-tab" id="tabCompare" onclick="setViewMode('compare')">予実比較</button>
   </div>
+  <div class="view-tabs scope-tabs">
+    <button class="view-tab active" id="scopeMonth" onclick="setCompareScope('month')">月</button>
+    <button class="view-tab" id="scopeDay" onclick="setCompareScope('day')">日</button>
+  </div>
   <div class="date-nav">
     <button class="nav-btn" onclick="changeDate(-1)" title="前日">◀</button>
     <select id="selYear" onchange="onDateSelect()"></select>
     <span class="date-sep">/</span>
     <select id="selMonth" onchange="onMonthChange()"></select>
-    <span class="date-sep">/</span>
+    <span class="date-sep" id="sepDay">/</span>
     <select id="selDay" onchange="onDateSelect()"></select>
     <button class="nav-btn" onclick="changeDate(1)" title="翌日">▶</button>
     <button class="today-btn" onclick="goToday()">今日</button>
@@ -663,6 +690,7 @@ const AVATAR_COLORS = [
 let allData = [];
 let categoryColorMap = {};
 var viewMode = 'daily'; // 'daily' | 'compare'
+var compareScope = 'month'; // 'month' | 'day' （予実比較の集計単位）
 // 実績が予定を上回っても「乖離」とみなさない許容幅（絶対値, h）
 var VARIANCE_TOLERANCE_H = 0.25;
 var CACHE_KEY = 'reportDataCache';
@@ -918,7 +946,23 @@ function setViewMode(mode) {
   document.getElementById('tabDaily').classList.toggle('active', mode === 'daily');
   document.getElementById('tabCompare').classList.toggle('active', mode === 'compare');
   document.body.classList.toggle('compare-mode', mode === 'compare');
+  updateDayVisibility();
   render();
+}
+
+function setCompareScope(scope) {
+  if (scope !== 'month' && scope !== 'day') scope = 'month';
+  compareScope = scope;
+  document.getElementById('scopeMonth').classList.toggle('active', scope === 'month');
+  document.getElementById('scopeDay').classList.toggle('active', scope === 'day');
+  updateDayVisibility();
+  render();
+}
+
+// 日セレクタの表示制御: 日報 or (予実比較 かつ 日集計) のときだけ表示
+function updateDayVisibility() {
+  var showDay = (viewMode === 'daily') || (viewMode === 'compare' && compareScope === 'day');
+  document.body.classList.toggle('hide-day', !showDay);
 }
 
 function render() {
@@ -1073,36 +1117,30 @@ function varianceClass(planned, actual) {
 function renderCompare() {
   var y = +document.getElementById('selYear').value;
   var m = +document.getElementById('selMonth').value;
-  var data = allData.filter(function(r) { return matchesMonth(r, y, m); });
+  var isDay = (compareScope === 'day');
+  var dateStr = getSelectedDate();
+  var data = allData.filter(function(r) {
+    return isDay ? matchesDate(r, dateStr) : matchesMonth(r, y, m);
+  });
   var main = document.getElementById('main');
 
   if (data.length === 0) {
+    var when = isDay ? formatDateJP(dateStr) : (y + '年' + m + '月');
     main.innerHTML = '<div class="no-data">' +
       '<div class="icon">📊</div>' +
-      '<div>' + y + '年' + m + '月 の予実データはありません</div>' +
-      '<div style="margin-top:8px;font-size:14px;color:var(--chalk-dim)">年月を変更してみてください</div>' +
+      '<div>' + when + ' の予実データはありません</div>' +
+      '<div style="margin-top:8px;font-size:14px;color:var(--chalk-dim)">' +
+      (isDay ? '日付' : '年月') + 'を変更してみてください</div>' +
       '</div>';
     return;
   }
 
-  // 人物 → タスク(taskId優先, 無ければtaskName)で集約
+  // 人物ごとにグルーピング
   var byPerson = {};
   data.forEach(function(r) {
     var pName = r.name || '(不明)';
-    if (!byPerson[pName]) byPerson[pName] = { email: r.email, tasks: {} };
-    var key = r.taskId || r.taskName || '(不明タスク)';
-    var t = byPerson[pName].tasks[key];
-    if (!t) {
-      t = byPerson[pName].tasks[key] = {
-        taskName: r.taskName || '(名称なし)',
-        categoryName: r.categoryName || '(その他)',
-        planned: 0, actual: 0, hasPlan: false,
-      };
-    }
-    // 1行=1件の作業ログ。予定(工数)も実績も各行に入るため、両方とも月内で合算する
-    t.planned += r.hours;
-    if (r.hours > 0) t.hasPlan = true;
-    t.actual += r.actualHours;
+    if (!byPerson[pName]) byPerson[pName] = { email: r.email, rows: [] };
+    byPerson[pName].rows.push(r);
   });
 
   var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
@@ -1120,15 +1158,58 @@ function renderCompare() {
     return ia - ib;
   });
 
-  // 全体サマリ
+  // 各人のエントリ一覧を作成: 月=タスク(taskId)で合算 / 日=合算せず個別
+  var personEntries = {};
   var grandPlan = 0, grandActual = 0;
   sortedPeople.forEach(function(name) {
-    var tasks = byPerson[name].tasks;
-    Object.keys(tasks).forEach(function(k) {
-      grandPlan += tasks[k].planned;
-      grandActual += tasks[k].actual;
-    });
+    var rows = byPerson[name].rows;
+    var list;
+    if (isDay) {
+      // 合算せず1件ずつ。備考も保持
+      list = rows.map(function(r) {
+        return {
+          taskName: r.taskName || '(名称なし)',
+          categoryName: r.categoryName || '(その他)',
+          planned: r.hours, actual: r.actualHours,
+          hasPlan: r.hours > 0,
+          remarks: r.remarks || '',
+          time: extractTime(r.registeredAt)
+        };
+      });
+      // 同じタスクを隣接させる: タスク名 → 時刻順
+      list.sort(function(a, b) {
+        var c = a.taskName.localeCompare(b.taskName, 'ja');
+        return c !== 0 ? c : a.time.localeCompare(b.time);
+      });
+    } else {
+      // タスク(taskId優先, 無ければtaskName)で合算
+      var tasks = {};
+      rows.forEach(function(r) {
+        var key = r.taskId || r.taskName || '(不明タスク)';
+        var t = tasks[key];
+        if (!t) {
+          t = tasks[key] = {
+            taskName: r.taskName || '(名称なし)',
+            categoryName: r.categoryName || '(その他)',
+            planned: 0, actual: 0, hasPlan: false,
+          };
+        }
+        // 予定(工数)も実績も各行に入るため両方とも合算
+        t.planned += r.hours;
+        if (r.hours > 0) t.hasPlan = true;
+        t.actual += r.actualHours;
+      });
+      list = Object.keys(tasks).map(function(k) { return tasks[k]; });
+      // 乖離の絶対値が大きい順
+      list.sort(function(a, b) {
+        return Math.abs(b.actual - b.planned) - Math.abs(a.actual - a.planned);
+      });
+    }
+    personEntries[name] = list;
+    list.forEach(function(t) { grandPlan += t.planned; grandActual += t.actual; });
   });
+
+  // 全体サマリ
   var grandDiff = grandActual - grandPlan;
   var grandRate = grandPlan > 0 ? (grandActual / grandPlan - 1) * 100 : null;
   var grandClass = varianceClass(grandPlan, grandActual);
@@ -1140,26 +1221,63 @@ function renderCompare() {
     '<div class="lbl">差分' + (grandRate === null ? '' : '（' + (grandRate >= 0 ? '+' : '') + grandRate.toFixed(0) + '%）') + '</div></div>' +
     '</div>';
 
+  // 1エントリ分の行を描画（月/日 共通）
+  function rowHtml(t, maxVal) {
+    var diff = t.actual - t.planned;
+    var cls = varianceClass(t.planned, t.actual);
+    var catColor = categoryColorMap[t.categoryName] || 'var(--chalk-dim)';
+
+    var tag = '';
+    if (!t.hasPlan && t.actual > 0) tag = '<span class="cmp-tag">予定なし</span>';
+    else if (t.hasPlan && t.actual === 0) tag = '<span class="cmp-tag">実績なし</span>';
+
+    var rateText = t.hasPlan
+      ? '<span class="rate">(' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%)</span>'
+      : '';
+
+    // バー: 予定/実績を上下2本で並べ、同じ尺度(ユーザー内最大値)で長さを比較
+    var actualPct = Math.min(100, t.actual / maxVal * 100);
+    var planPct = Math.min(100, t.planned / maxVal * 100);
+    var fillColor = cls === 'cmp-over' ? 'var(--chalk-pink)'
+      : cls === 'cmp-under' ? 'var(--chalk-green)' : 'var(--chalk-dim)';
+
+    var timeHtml = t.time ? '<span class="cmp-time">' + esc(t.time) + '</span> ' : '';
+    var remarksHtml = t.remarks ? '<div class="cmp-remarks">' + esc(t.remarks) + '</div>' : '';
+
+    return '<div class="compare-task-row">' +
+      '<div class="cmp-name" title="' + esc(t.taskName) + '">' +
+      '<span style="color:' + catColor + '">●</span> ' + timeHtml + esc(t.taskName) + ' ' + tag + '</div>' +
+      '<div class="cmp-bars">' +
+      '<div class="bar-line"><span class="bar-tag plan">予定</span>' +
+      '<div class="bar-track"><div class="bar-fill plan" style="width:' + planPct.toFixed(1) + '%"></div></div></div>' +
+      '<div class="bar-line"><span class="bar-tag">実績</span>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div></div></div>' +
+      '</div>' +
+      '<div class="cmp-nums">' +
+      '<div class="cmp-num cmp-plan"><span class="n">' + t.planned.toFixed(2) + '</span><span class="l">予定</span></div>' +
+      '<div class="cmp-num cmp-actual"><span class="n">' + t.actual.toFixed(2) + '</span><span class="l">実績</span></div>' +
+      '</div>' +
+      '<div class="cmp-diff ' + cls + '">' + fmtSigned(diff) + 'h' + rateText + '</div>' +
+      remarksHtml +
+      '</div>';
+  }
+
   sortedPeople.forEach(function(name) {
     var info = byPerson[name];
-    var taskList = Object.keys(info.tasks).map(function(k) { return info.tasks[k]; });
+    var list = personEntries[name];
 
     var pPlan = 0, pActual = 0;
-    taskList.forEach(function(t) { pPlan += t.planned; pActual += t.actual; });
+    list.forEach(function(t) { pPlan += t.planned; pActual += t.actual; });
     var pDiff = pActual - pPlan;
     var pRate = pPlan > 0 ? (pActual / pPlan - 1) * 100 : null;
-
-    // 乖離の絶対値が大きい順
-    taskList.sort(function(a, b) {
-      return Math.abs(b.actual - b.planned) - Math.abs(a.actual - a.planned);
-    });
+    var countLabel = isDay ? (list.length + '件') : (list.length + 'タスク');
 
     html += '<div class="person-card">' +
       '<div class="person-header">' +
       '<div class="avatar">' + esc(name.charAt(0)) + '</div>' +
       '<div class="person-info">' +
       '<div class="person-name">' + esc(name) + '</div>' +
-      '<div class="person-meta">' + esc(info.email) + ' ・ ' + taskList.length + 'タスク</div>' +
+      '<div class="person-meta">' + esc(info.email) + ' ・ ' + countLabel + '</div>' +
       '</div>' +
       '<div class="person-total">' +
       '<div class="hours">' + pActual.toFixed(1) + '<span style="font-size:16px;font-weight:400">h</span></div>' +
@@ -1169,45 +1287,8 @@ function renderCompare() {
     html += '<div class="task-rows">';
     // バーの基準（このユーザー内の最大値でスケール）
     var maxVal = 0.001;
-    taskList.forEach(function(t) {
-      maxVal = Math.max(maxVal, t.planned, t.actual);
-    });
-
-    taskList.forEach(function(t) {
-      var diff = t.actual - t.planned;
-      var cls = varianceClass(t.planned, t.actual);
-      var catColor = categoryColorMap[t.categoryName] || 'var(--chalk-dim)';
-
-      var tag = '';
-      if (!t.hasPlan && t.actual > 0) tag = '<span class="cmp-tag">予定なし</span>';
-      else if (t.hasPlan && t.actual === 0) tag = '<span class="cmp-tag">実績なし</span>';
-
-      var rateText = t.hasPlan
-        ? '<span class="rate">(' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%)</span>'
-        : '';
-
-      // バー: 予定/実績を上下2本で並べ、同じ尺度(ユーザー内最大値)で長さを比較
-      var actualPct = Math.min(100, t.actual / maxVal * 100);
-      var planPct = Math.min(100, t.planned / maxVal * 100);
-      var fillColor = cls === 'cmp-over' ? 'var(--chalk-pink)'
-        : cls === 'cmp-under' ? 'var(--chalk-green)' : 'var(--chalk-dim)';
-
-      html += '<div class="compare-task-row">' +
-        '<div class="cmp-name" title="' + esc(t.taskName) + '">' +
-        '<span style="color:' + catColor + '">●</span> ' + esc(t.taskName) + ' ' + tag + '</div>' +
-        '<div class="cmp-bars">' +
-        '<div class="bar-line"><span class="bar-tag plan">予定</span>' +
-        '<div class="bar-track"><div class="bar-fill plan" style="width:' + planPct.toFixed(1) + '%"></div></div></div>' +
-        '<div class="bar-line"><span class="bar-tag">実績</span>' +
-        '<div class="bar-track"><div class="bar-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div></div></div>' +
-        '</div>' +
-        '<div class="cmp-nums">' +
-        '<div class="cmp-num cmp-plan"><span class="n">' + t.planned.toFixed(2) + '</span><span class="l">予定</span></div>' +
-        '<div class="cmp-num cmp-actual"><span class="n">' + t.actual.toFixed(2) + '</span><span class="l">実績</span></div>' +
-        '</div>' +
-        '<div class="cmp-diff ' + cls + '">' + fmtSigned(diff) + 'h' + rateText + '</div>' +
-        '</div>';
-    });
+    list.forEach(function(t) { maxVal = Math.max(maxVal, t.planned, t.actual); });
+    list.forEach(function(t) { html += rowHtml(t, maxVal); });
     html += '</div>';
 
     html += '<div class="person-footer">' +
