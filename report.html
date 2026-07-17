@@ -404,6 +404,158 @@
   }
 
   .person-footer strong { color: var(--chalk-bright); }
+  .person-footer strong.cmp-over { color: var(--chalk-pink); }
+  .person-footer strong.cmp-under { color: var(--chalk-green); }
+  .person-footer strong.cmp-ontarget { color: var(--chalk-dim); }
+
+  /* --- View toggle tabs --- */
+  .view-tabs {
+    display: flex;
+    gap: 4px;
+    border: 2px solid rgba(232,228,217,0.3);
+    border-radius: 6px;
+    padding: 3px;
+    background: rgba(232,228,217,0.05);
+  }
+
+  .view-tab {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--chalk-dim);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .view-tab:hover { color: var(--chalk); }
+
+  .view-tab.active {
+    background: rgba(232,228,217,0.18);
+    color: var(--chalk-bright);
+  }
+
+  /* In compare mode, day selector is irrelevant */
+  body.compare-mode #selDay { display: none; }
+
+  /* --- Compare (予実比較) view --- */
+  .compare-task-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(232,228,217,0.12);
+    flex-wrap: wrap;
+  }
+
+  .compare-task-row:last-child { border-bottom: none; }
+
+  .cmp-name {
+    flex: 1 1 180px;
+    font-size: 14px;
+    color: var(--chalk);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cmp-nums {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    font-family: 'Klee One', serif;
+    white-space: nowrap;
+  }
+
+  .cmp-num { text-align: right; }
+  .cmp-num .n {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .cmp-num .l {
+    font-size: 10px;
+    color: var(--chalk-dim);
+    margin-left: 3px;
+  }
+
+  .cmp-plan .n { color: var(--chalk-blue); }
+  .cmp-actual .n { color: var(--chalk-bright); }
+
+  .cmp-diff {
+    min-width: 92px;
+    text-align: right;
+    font-family: 'Klee One', serif;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .cmp-diff .rate { font-size: 11px; margin-left: 4px; }
+
+  .cmp-over { color: var(--chalk-pink); }
+  .cmp-under { color: var(--chalk-green); }
+  .cmp-ontarget { color: var(--chalk-dim); }
+
+  .cmp-tag {
+    font-size: 10px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--chalk-dim);
+    color: var(--chalk-dim);
+    white-space: nowrap;
+  }
+
+  /* variance bar: planned baseline vs actual overlay */
+  .cmp-bar {
+    flex: 1 1 120px;
+    height: 8px;
+    min-width: 80px;
+    background: rgba(232,228,217,0.1);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cmp-bar .plan-mark {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--chalk-blue);
+    z-index: 2;
+  }
+
+  .cmp-bar .actual-fill {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    border-radius: 4px;
+    z-index: 1;
+  }
+
+  .compare-summary {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 16px;
+    text-align: center;
+    margin-bottom: 24px;
+    border: 3px dashed rgba(232,228,217,0.25);
+    border-radius: 8px;
+    padding: 20px 24px;
+  }
+
+  .compare-summary .val {
+    font-family: 'Klee One', serif;
+    font-size: 30px;
+    font-weight: 600;
+  }
+  .compare-summary .val.plan { color: var(--chalk-blue); }
+  .compare-summary .val.actual { color: var(--chalk-yellow); }
+  .compare-summary .lbl { font-size: 12px; color: var(--chalk-dim); margin-top: 2px; }
 
   /* --- Chalk tray --- */
   .chalk-tray {
@@ -455,6 +607,10 @@
     <h1>黒板</h1>
     <p>誰が、どの種別で、何をしたか - 1日の振り返り</p>
   </div>
+  <div class="view-tabs">
+    <button class="view-tab active" id="tabDaily" onclick="setViewMode('daily')">日報</button>
+    <button class="view-tab" id="tabCompare" onclick="setViewMode('compare')">予実比較</button>
+  </div>
   <div class="date-nav">
     <button class="nav-btn" onclick="changeDate(-1)" title="前日">◀</button>
     <select id="selYear" onchange="onDateSelect()"></select>
@@ -493,6 +649,9 @@ const AVATAR_COLORS = [
 
 let allData = [];
 let categoryColorMap = {};
+var viewMode = 'daily'; // 'daily' | 'compare'
+// 実績が予定を上回っても「乖離」とみなさない許容幅（絶対値, h）
+var VARIANCE_TOLERANCE_H = 0.25;
 var CACHE_KEY = 'reportDataCache';
 var CACHE_TS_KEY = 'reportDataCacheTs';
 var CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -740,7 +899,21 @@ function extractTime(raw) {
   return '';
 }
 
+function setViewMode(mode) {
+  if (mode !== 'daily' && mode !== 'compare') mode = 'daily';
+  viewMode = mode;
+  document.getElementById('tabDaily').classList.toggle('active', mode === 'daily');
+  document.getElementById('tabCompare').classList.toggle('active', mode === 'compare');
+  document.body.classList.toggle('compare-mode', mode === 'compare');
+  render();
+}
+
 function render() {
+  if (viewMode === 'compare') { renderCompare(); return; }
+  renderDaily();
+}
+
+function renderDaily() {
   var dateStr = getSelectedDate();
   var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
   var main = document.getElementById('main');
@@ -860,6 +1033,172 @@ function render() {
     html += '<div class="person-footer">' +
       '<span>タスク合計: <strong>' + personTasks + '件</strong></span>' +
       '<span>実績工数: <strong>' + personActual.toFixed(1) + 'h</strong></span>' +
+      '</div></div>';
+  });
+
+  main.innerHTML = html;
+}
+
+function matchesMonth(row, y, m) {
+  var rd = parseRowDate(row.completedDate);
+  if (!rd) return false;
+  return rd.y === y && rd.m === m;
+}
+
+function fmtSigned(v) {
+  return (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(2);
+}
+
+// 差分の分類: 実績-予定 と許容幅から over/under/ontarget を返す
+function varianceClass(planned, actual) {
+  var diff = actual - planned;
+  if (diff > VARIANCE_TOLERANCE_H) return 'cmp-over';
+  if (diff < -VARIANCE_TOLERANCE_H) return 'cmp-under';
+  return 'cmp-ontarget';
+}
+
+function renderCompare() {
+  var y = +document.getElementById('selYear').value;
+  var m = +document.getElementById('selMonth').value;
+  var data = allData.filter(function(r) { return matchesMonth(r, y, m); });
+  var main = document.getElementById('main');
+
+  if (data.length === 0) {
+    main.innerHTML = '<div class="no-data">' +
+      '<div class="icon">📊</div>' +
+      '<div>' + y + '年' + m + '月 の予実データはありません</div>' +
+      '<div style="margin-top:8px;font-size:14px;color:var(--chalk-dim)">年月を変更してみてください</div>' +
+      '</div>';
+    return;
+  }
+
+  // 人物 → タスク(taskId優先, 無ければtaskName)で集約
+  var byPerson = {};
+  data.forEach(function(r) {
+    var pName = r.name || '(不明)';
+    if (!byPerson[pName]) byPerson[pName] = { email: r.email, tasks: {} };
+    var key = r.taskId || r.taskName || '(不明タスク)';
+    var t = byPerson[pName].tasks[key];
+    if (!t) {
+      t = byPerson[pName].tasks[key] = {
+        taskName: r.taskName || '(名称なし)',
+        categoryName: r.categoryName || '(その他)',
+        planned: 0, actual: 0, hasPlan: false,
+      };
+    }
+    // 予定は1見積りのため合算せず、最初の非ゼロ値を採用
+    if (!t.hasPlan && r.hours > 0) { t.planned = r.hours; t.hasPlan = true; }
+    t.actual += r.actualHours;
+  });
+
+  var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
+  var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
+    var ia = -1, ib = -1;
+    for (var i = 0; i < PERSON_ORDER.length; i++) {
+      if (a.indexOf(PERSON_ORDER[i]) !== -1) { ia = i; break; }
+    }
+    for (var i = 0; i < PERSON_ORDER.length; i++) {
+      if (b.indexOf(PERSON_ORDER[i]) !== -1) { ib = i; break; }
+    }
+    if (ia === -1 && ib === -1) return a.localeCompare(b, 'ja');
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  // 全体サマリ
+  var grandPlan = 0, grandActual = 0;
+  sortedPeople.forEach(function(name) {
+    var tasks = byPerson[name].tasks;
+    Object.keys(tasks).forEach(function(k) {
+      grandPlan += tasks[k].planned;
+      grandActual += tasks[k].actual;
+    });
+  });
+  var grandDiff = grandActual - grandPlan;
+  var grandRate = grandPlan > 0 ? (grandActual / grandPlan - 1) * 100 : null;
+  var grandClass = varianceClass(grandPlan, grandActual);
+
+  var html = '<div class="compare-summary">' +
+    '<div><div class="val plan">' + grandPlan.toFixed(1) + 'h</div><div class="lbl">予定 合計</div></div>' +
+    '<div><div class="val actual">' + grandActual.toFixed(1) + 'h</div><div class="lbl">実績 合計</div></div>' +
+    '<div><div class="val ' + grandClass + '">' + fmtSigned(grandDiff) + 'h</div>' +
+    '<div class="lbl">差分' + (grandRate === null ? '' : '（' + (grandRate >= 0 ? '+' : '') + grandRate.toFixed(0) + '%）') + '</div></div>' +
+    '</div>';
+
+  sortedPeople.forEach(function(name) {
+    var info = byPerson[name];
+    var taskList = Object.keys(info.tasks).map(function(k) { return info.tasks[k]; });
+
+    var pPlan = 0, pActual = 0;
+    taskList.forEach(function(t) { pPlan += t.planned; pActual += t.actual; });
+    var pDiff = pActual - pPlan;
+    var pRate = pPlan > 0 ? (pActual / pPlan - 1) * 100 : null;
+
+    // 乖離の絶対値が大きい順
+    taskList.sort(function(a, b) {
+      return Math.abs(b.actual - b.planned) - Math.abs(a.actual - a.planned);
+    });
+
+    html += '<div class="person-card">' +
+      '<div class="person-header">' +
+      '<div class="avatar">' + esc(name.charAt(0)) + '</div>' +
+      '<div class="person-info">' +
+      '<div class="person-name">' + esc(name) + '</div>' +
+      '<div class="person-meta">' + esc(info.email) + ' ・ ' + taskList.length + 'タスク</div>' +
+      '</div>' +
+      '<div class="person-total">' +
+      '<div class="hours">' + pActual.toFixed(1) + '<span style="font-size:16px;font-weight:400">h</span></div>' +
+      '<div class="hours-label">実績（予定 ' + pPlan.toFixed(1) + 'h）</div>' +
+      '</div></div>';
+
+    html += '<div class="task-rows">';
+    // バーの基準（このユーザー内の最大値でスケール）
+    var maxVal = 0.001;
+    taskList.forEach(function(t) {
+      maxVal = Math.max(maxVal, t.planned, t.actual);
+    });
+
+    taskList.forEach(function(t) {
+      var diff = t.actual - t.planned;
+      var cls = varianceClass(t.planned, t.actual);
+      var catColor = categoryColorMap[t.categoryName] || 'var(--chalk-dim)';
+
+      var tag = '';
+      if (!t.hasPlan && t.actual > 0) tag = '<span class="cmp-tag">予定なし</span>';
+      else if (t.hasPlan && t.actual === 0) tag = '<span class="cmp-tag">実績なし</span>';
+
+      var rateText = t.hasPlan
+        ? '<span class="rate">(' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%)</span>'
+        : '';
+
+      // バー: 予定位置マーカー + 実績塗り
+      var actualPct = Math.min(100, t.actual / maxVal * 100);
+      var planPct = Math.min(100, t.planned / maxVal * 100);
+      var fillColor = cls === 'cmp-over' ? 'var(--chalk-pink)'
+        : cls === 'cmp-under' ? 'var(--chalk-green)' : 'var(--chalk-dim)';
+
+      html += '<div class="compare-task-row">' +
+        '<div class="cmp-name" title="' + esc(t.taskName) + '">' +
+        '<span style="color:' + catColor + '">●</span> ' + esc(t.taskName) + ' ' + tag + '</div>' +
+        '<div class="cmp-bar">' +
+        '<div class="actual-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div>' +
+        '<div class="plan-mark" style="left:' + planPct.toFixed(1) + '%"></div>' +
+        '</div>' +
+        '<div class="cmp-nums">' +
+        '<div class="cmp-num cmp-plan"><span class="n">' + t.planned.toFixed(2) + '</span><span class="l">予定</span></div>' +
+        '<div class="cmp-num cmp-actual"><span class="n">' + t.actual.toFixed(2) + '</span><span class="l">実績</span></div>' +
+        '</div>' +
+        '<div class="cmp-diff ' + cls + '">' + fmtSigned(diff) + 'h' + rateText + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+
+    html += '<div class="person-footer">' +
+      '<span>予定合計: <strong>' + pPlan.toFixed(1) + 'h</strong></span>' +
+      '<span>実績合計: <strong>' + pActual.toFixed(1) + 'h</strong></span>' +
+      '<span>差分: <strong class="' + varianceClass(pPlan, pActual) + '">' + fmtSigned(pDiff) + 'h' +
+      (pRate === null ? '' : '（' + (pRate >= 0 ? '+' : '') + pRate.toFixed(0) + '%）') + '</strong></span>' +
       '</div></div>';
   });
 
