@@ -490,6 +490,14 @@
   .cmp-plan .n { color: var(--chalk-blue); }
   .cmp-actual .n { color: var(--chalk-bright); }
 
+  /* 分の併記（h の隣に小さく） */
+  .min {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--chalk-dim);
+    margin-left: 1px;
+  }
+
   .cmp-diff {
     min-width: 92px;
     text-align: right;
@@ -1106,6 +1114,17 @@ function fmtSigned(v) {
   return (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(2);
 }
 
+// 時間(h)→分(整数)
+function toMin(h) { return Math.round(h * 60); }
+// 符号付きの分表記
+function fmtMinSigned(v) {
+  return (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(Math.round(v * 60));
+}
+// 値を「X.XXh (N分)」形式で（decimals 桁）
+function hm(h, decimals) {
+  return h.toFixed(decimals == null ? 2 : decimals) + 'h <span class="min">(' + toMin(h) + '分)</span>';
+}
+
 // 差分の分類: 実績-予定 と許容幅から over/under/ontarget を返す
 function varianceClass(planned, actual) {
   var diff = actual - planned;
@@ -1215,10 +1234,10 @@ function renderCompare() {
   var grandClass = varianceClass(grandPlan, grandActual);
 
   var html = '<div class="compare-summary">' +
-    '<div><div class="val plan">' + grandPlan.toFixed(1) + 'h</div><div class="lbl">予定 合計</div></div>' +
-    '<div><div class="val actual">' + grandActual.toFixed(1) + 'h</div><div class="lbl">実績 合計</div></div>' +
+    '<div><div class="val plan">' + grandPlan.toFixed(1) + 'h</div><div class="lbl">予定 合計 (' + toMin(grandPlan) + '分)</div></div>' +
+    '<div><div class="val actual">' + grandActual.toFixed(1) + 'h</div><div class="lbl">実績 合計 (' + toMin(grandActual) + '分)</div></div>' +
     '<div><div class="val ' + grandClass + '">' + fmtSigned(grandDiff) + 'h</div>' +
-    '<div class="lbl">差分' + (grandRate === null ? '' : '（' + (grandRate >= 0 ? '+' : '') + grandRate.toFixed(0) + '%）') + '</div></div>' +
+    '<div class="lbl">差分 ' + fmtMinSigned(grandDiff) + '分' + (grandRate === null ? '' : '（' + (grandRate >= 0 ? '+' : '') + grandRate.toFixed(0) + '%）') + '</div></div>' +
     '</div>';
 
   // 1エントリ分の行を描画（月/日 共通）
@@ -1230,10 +1249,6 @@ function renderCompare() {
     var tag = '';
     if (!t.hasPlan && t.actual > 0) tag = '<span class="cmp-tag">予定なし</span>';
     else if (t.hasPlan && t.actual === 0) tag = '<span class="cmp-tag">実績なし</span>';
-
-    var rateText = t.hasPlan
-      ? '<span class="rate">(' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%)</span>'
-      : '';
 
     // バー: 予定/実績を上下2本で並べ、同じ尺度(ユーザー内最大値)で長さを比較
     var actualPct = Math.min(100, t.actual / maxVal * 100);
@@ -1254,10 +1269,10 @@ function renderCompare() {
       '<div class="bar-track"><div class="bar-fill" style="width:' + actualPct.toFixed(1) + '%;background:' + fillColor + '"></div></div></div>' +
       '</div>' +
       '<div class="cmp-nums">' +
-      '<div class="cmp-num cmp-plan"><span class="n">' + t.planned.toFixed(2) + '</span><span class="l">予定</span></div>' +
-      '<div class="cmp-num cmp-actual"><span class="n">' + t.actual.toFixed(2) + '</span><span class="l">実績</span></div>' +
+      '<div class="cmp-num cmp-plan"><span class="n">' + hm(t.planned) + '</span><span class="l">予定</span></div>' +
+      '<div class="cmp-num cmp-actual"><span class="n">' + hm(t.actual) + '</span><span class="l">実績</span></div>' +
       '</div>' +
-      '<div class="cmp-diff ' + cls + '">' + fmtSigned(diff) + 'h' + rateText + '</div>' +
+      '<div class="cmp-diff ' + cls + '">' + fmtSigned(diff) + 'h <span class="min">(' + fmtMinSigned(diff) + '分' + (t.hasPlan ? ' / ' + (diff >= 0 ? '+' : '−') + Math.abs(diff / t.planned * 100).toFixed(0) + '%' : '') + ')</span></div>' +
       remarksHtml +
       '</div>';
   }
@@ -1281,7 +1296,7 @@ function renderCompare() {
       '</div>' +
       '<div class="person-total">' +
       '<div class="hours">' + pActual.toFixed(1) + '<span style="font-size:16px;font-weight:400">h</span></div>' +
-      '<div class="hours-label">実績（予定 ' + pPlan.toFixed(1) + 'h）</div>' +
+      '<div class="hours-label">実績 ' + toMin(pActual) + '分（予定 ' + pPlan.toFixed(1) + 'h・' + toMin(pPlan) + '分）</div>' +
       '</div></div>';
 
     html += '<div class="task-rows">';
@@ -1292,9 +1307,9 @@ function renderCompare() {
     html += '</div>';
 
     html += '<div class="person-footer">' +
-      '<span>予定合計: <strong>' + pPlan.toFixed(1) + 'h</strong></span>' +
-      '<span>実績合計: <strong>' + pActual.toFixed(1) + 'h</strong></span>' +
-      '<span>差分: <strong class="' + varianceClass(pPlan, pActual) + '">' + fmtSigned(pDiff) + 'h' +
+      '<span>予定合計: <strong>' + pPlan.toFixed(1) + 'h (' + toMin(pPlan) + '分)</strong></span>' +
+      '<span>実績合計: <strong>' + pActual.toFixed(1) + 'h (' + toMin(pActual) + '分)</strong></span>' +
+      '<span>差分: <strong class="' + varianceClass(pPlan, pActual) + '">' + fmtSigned(pDiff) + 'h ' + fmtMinSigned(pDiff) + '分' +
       (pRate === null ? '' : '（' + (pRate >= 0 ? '+' : '') + pRate.toFixed(0) + '%）') + '</strong></span>' +
       '</div></div>';
   });
