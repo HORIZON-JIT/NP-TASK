@@ -638,8 +638,8 @@
     <button class="view-tab" id="tabCompare" onclick="setViewMode('compare')">予実比較</button>
   </div>
   <div class="view-tabs scope-tabs">
-    <button class="view-tab active" id="scopeMonth" onclick="setCompareScope('month')">月</button>
-    <button class="view-tab" id="scopeDay" onclick="setCompareScope('day')">日</button>
+    <button class="view-tab" id="scopeMonth" onclick="setCompareScope('month')">月</button>
+    <button class="view-tab active" id="scopeDay" onclick="setCompareScope('day')">日</button>
   </div>
   <div class="date-nav">
     <button class="nav-btn" onclick="changeDate(-1)" title="前日">◀</button>
@@ -680,7 +680,7 @@ const AVATAR_COLORS = [
 let allData = [];
 let categoryColorMap = {};
 var viewMode = 'daily'; // 'daily' | 'compare'
-var compareScope = 'month'; // 'month' | 'day' （予実比較の集計単位）
+var compareScope = 'day'; // 'month' | 'day' （予実比較の集計単位。既定は日別）
 // 実績が予定を上回っても「乖離」とみなさない許容幅（絶対値, h）
 var VARIANCE_TOLERANCE_H = 0.25;
 var CACHE_KEY = 'reportDataCache';
