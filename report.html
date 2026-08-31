@@ -8,6 +8,7 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
   :root {
+    color-scheme: dark;   /* ネイティブUI(セレクト/日付ピッカー)も暗色に */
     /* ===== minimal dark palette ===== */
     --bg: #0B0D10;
     --text: #DDE3E8;
@@ -220,7 +221,7 @@
 
   /* --- 配置を動かさないための表示制御 ---
      display:none は使わない。スペースを保ったまま見えなくする / 無効化する */
-  body:not(.compare-mode) .scope-tabs { visibility: hidden; }
+  body:not(.has-scope) .scope-tabs { visibility: hidden; }
 
   body.hide-day #selDay { opacity: 0.3; pointer-events: none; }
   body.hide-day #sepDay { opacity: 0.3; }
@@ -602,6 +603,127 @@
   }
   .bar-fill.plan { background: var(--plan); }
 
+  /* ===================== toolbar (絞り込み・期間) ===================== */
+  .toolbar {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 14px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar select,
+  .toolbar input {
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .toolbar select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 24px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239AA5B0'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .toolbar select option { background: #14181D; color: var(--text); }
+
+  .toolbar input[type="search"] { flex: 0 1 240px; min-width: 150px; }
+  .toolbar input[type="date"] { font-family: var(--font-mono); font-size: 11px; }
+
+  .toolbar select:hover, .toolbar input:hover { border-color: rgba(255,255,255,0.14); }
+  .toolbar select:focus, .toolbar input:focus { border-color: var(--accent); }
+
+  .range-group { display: inline-flex; align-items: center; gap: 6px; }
+  /* 期間モード以外はスペースを保ったまま隠す（配置を動かさないため display:none は使わない） */
+  body:not(.scope-range) .range-group { visibility: hidden; }
+
+  .filter-info {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .filter-clear {
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .filter-clear:hover { color: var(--text-bright); border-color: rgba(255,255,255,0.14); }
+
+  /* ===================== section head ===================== */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 0 6px 12px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 6px;
+  }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--text-bright); }
+  .section-note { font-size: 11px; color: var(--text-dim); }
+
+  /* ===================== ranking rows ===================== */
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 6px;
+    border-radius: 4px;
+    flex-wrap: wrap;
+    transition: background 0.12s;
+  }
+  .rank-row:hover { background: rgba(255,255,255,0.03); }
+
+  .rank-no {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .rank-main { flex: 1 1 220px; min-width: 0; }
+  .rank-task {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rank-sub { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+  .rank-bar {
+    flex: 1 1 110px;
+    min-width: 70px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+  .rank-bar > i { display: block; height: 100%; border-radius: 2px; }
+
   @media (max-width: 768px) {
     .header {
       grid-template-columns: 1fr;
@@ -623,6 +745,9 @@
     .compare-summary { gap: 24px; padding-bottom: 18px; }
     .compare-summary .val { font-size: 22px; }
     .cmp-diff { min-width: 0; text-align: left; }
+    .toolbar { padding: 12px 14px 0; }
+    .toolbar input[type="search"] { flex: 1 1 140px; }
+    .filter-info { margin-left: 0; flex-basis: 100%; white-space: normal; }
   }
 </style>
 </head>
@@ -636,10 +761,13 @@
   <div class="view-tabs">
     <button class="view-tab active" id="tabDaily" onclick="setViewMode('daily')">日報</button>
     <button class="view-tab" id="tabCompare" onclick="setViewMode('compare')">予実比較</button>
+    <button class="view-tab" id="tabRanking" onclick="setViewMode('ranking')">ランキング</button>
   </div>
   <div class="view-tabs scope-tabs">
-    <button class="view-tab" id="scopeMonth" onclick="setCompareScope('month')">月</button>
     <button class="view-tab active" id="scopeDay" onclick="setCompareScope('day')">日</button>
+    <button class="view-tab" id="scopeWeek" onclick="setCompareScope('week')">週</button>
+    <button class="view-tab" id="scopeMonth" onclick="setCompareScope('month')">月</button>
+    <button class="view-tab" id="scopeRange" onclick="setCompareScope('range')">期間</button>
   </div>
   <div class="date-nav">
     <button class="nav-btn" onclick="changeDate(-1)" title="前日">◀</button>
@@ -654,6 +782,18 @@
       <span class="sync-icon">⟳</span>同期
     </button>
   </div>
+</div>
+
+<div class="toolbar">
+  <select id="filterPerson" onchange="render()" title="担当者で絞り込み"></select>
+  <input type="search" id="filterText" placeholder="タスク名・種別で絞り込み" oninput="onFilterInput()">
+  <span class="range-group" id="rangeGroup">
+    <input type="date" id="rangeFrom" onchange="render()" title="期間の開始">
+    <span class="date-sep">〜</span>
+    <input type="date" id="rangeTo" onchange="render()" title="期間の終了">
+  </span>
+  <button class="filter-clear" onclick="clearFilters()" title="絞り込みを解除">解除</button>
+  <span class="filter-info" id="filterInfo"></span>
 </div>
 
 <div class="board-frame">
@@ -679,8 +819,10 @@ const AVATAR_COLORS = [
 
 let allData = [];
 let categoryColorMap = {};
-var viewMode = 'daily'; // 'daily' | 'compare'
-var compareScope = 'day'; // 'month' | 'day' （予実比較の集計単位。既定は日別）
+var viewMode = 'daily'; // 'daily' | 'compare' | 'ranking'
+var compareScope = 'day'; // 'day' | 'week' | 'month' | 'range' （集計単位。既定は日別）
+var filterTimer = null;
+var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
 // 実績が予定を上回っても「乖離」とみなさない許容幅（絶対値, h）
 var VARIANCE_TOLERANCE_H = 0.25;
 var CACHE_KEY = 'reportDataCache';
@@ -770,15 +912,171 @@ function onDateSelect() {
   render();
 }
 
+function pad2(n) { return ('0' + n).slice(-2); }
+
+// ローカル時刻で YYYY-MM-DD を作る（toISOString は UTC なので JST では日付がずれる）
+function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+
 function today() {
-  return new Date().toISOString().split('T')[0];
+  return ymd(new Date());
 }
 
+function fmtDateShort(dateStr) {
+  var a = dateStr.split('-');
+  return +a[1] + '/' + +a[2];
+}
+
+// 月曜始まりの週の境界を返す
+function weekBounds(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00');
+  var dow = d.getDay();                          // 0=日
+  var s = new Date(d);
+  s.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+  var e = new Date(s);
+  e.setDate(s.getDate() + 6);
+  return [ymd(s), ymd(e)];
+}
+
+// 現在の集計単位から対象期間 {from, to, label} を返す
+function getPeriod() {
+  var y = +document.getElementById('selYear').value;
+  var m = +document.getElementById('selMonth').value;
+  var dateStr = getSelectedDate();
+  if (compareScope === 'week') {
+    var w = weekBounds(dateStr);
+    return { from: w[0], to: w[1], label: fmtDateShort(w[0]) + '〜' + fmtDateShort(w[1]) + ' の週' };
+  }
+  if (compareScope === 'month') {
+    var last = new Date(y, m, 0).getDate();
+    return { from: y + '-' + pad2(m) + '-01', to: y + '-' + pad2(m) + '-' + pad2(last), label: y + '年' + m + '月' };
+  }
+  if (compareScope === 'range') {
+    var f = document.getElementById('rangeFrom').value;
+    var t = document.getElementById('rangeTo').value;
+    if (!f || !t) { f = dateStr; t = dateStr; }
+    if (f > t) { var tmp = f; f = t; t = tmp; }
+    return { from: f, to: t, label: fmtDateShort(f) + '〜' + fmtDateShort(t) };
+  }
+  return { from: dateStr, to: dateStr, label: formatDateJP(dateStr) };
+}
+
+// 行の完了日を YYYY-MM-DD で返す（比較用）
+function rowDateStr(row) {
+  var rd = parseRowDate(row.completedDate);
+  return rd ? rd.y + '-' + pad2(rd.m) + '-' + pad2(rd.d) : null;
+}
+
+function inPeriod(row, period) {
+  var ds = rowDateStr(row);
+  return ds !== null && ds >= period.from && ds <= period.to;
+}
+
+// --- 絞り込み（担当者 / キーワード） ---
+function getFilters() {
+  var p = document.getElementById('filterPerson');
+  var t = document.getElementById('filterText');
+  return { person: p ? p.value : '', text: (t ? t.value : '').trim().toLowerCase() };
+}
+
+function hasFilter(f) { return !!(f.person || f.text); }
+
+function passesFilter(row, f) {
+  if (f.person && (row.name || '(不明)') !== f.person) return false;
+  if (f.text) {
+    var hay = ((row.taskName || '') + ' ' + (row.categoryName || '')).toLowerCase();
+    if (hay.indexOf(f.text) === -1) return false;
+  }
+  return true;
+}
+
+function onFilterInput() {
+  if (filterTimer) clearTimeout(filterTimer);
+  filterTimer = setTimeout(render, 180);
+}
+
+function clearFilters() {
+  var p = document.getElementById('filterPerson');
+  var t = document.getElementById('filterText');
+  if (p) p.value = '';
+  if (t) t.value = '';
+  render();
+}
+
+function populatePersonFilter() {
+  var sel = document.getElementById('filterPerson');
+  if (!sel) return;
+  var prev = sel.value;
+  var seen = {};
+  allData.forEach(function(r) { seen[r.name || '(不明)'] = true; });
+  var list = Object.keys(seen).sort(personCompare);
+  sel.innerHTML = '<option value="">全員</option>' +
+    list.map(function(n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+  if (prev && list.indexOf(prev) >= 0) sel.value = prev;
+}
+
+function setFilterInfo(rows, periodLabel) {
+  var el = document.getElementById('filterInfo');
+  if (!el) return;
+  var seen = {};
+  rows.forEach(function(r) { seen[r.name || '(不明)'] = true; });
+  el.textContent = periodLabel + ' ・ ' + Object.keys(seen).length + '人 / ' + rows.length + '件';
+}
+
+// 既定の並び順（PERSON_ORDER の順、未知の人は名前順で後ろ）
+function personCompare(a, b) {
+  var ia = -1, ib = -1;
+  for (var i = 0; i < PERSON_ORDER.length; i++) {
+    if (a.indexOf(PERSON_ORDER[i]) !== -1) { ia = i; break; }
+  }
+  for (var i = 0; i < PERSON_ORDER.length; i++) {
+    if (b.indexOf(PERSON_ORDER[i]) !== -1) { ib = i; break; }
+  }
+  if (ia === -1 && ib === -1) return a.localeCompare(b, 'ja');
+  if (ia === -1) return 1;
+  if (ib === -1) return -1;
+  return ia - ib;
+}
+
+function emptyHtml(icon, msg, f) {
+  return '<div class="no-data"><div class="icon">' + icon + '</div><div>' + esc(msg) + '</div>' +
+    '<div style="margin-top:8px;font-size:13px;color:var(--text-dim)">' +
+    (hasFilter(f) ? '絞り込みを解除するか、期間を変えてみてください' : '期間を変更してみてください') +
+    '</div></div>';
+}
+
+// ◀▶ は現在の集計単位で移動する（日=1日 / 週=7日 / 月=1ヶ月 / 期間=期間の長さ）
 function changeDate(delta) {
-  var cur = getSelectedDate();
-  var d = new Date(cur);
-  d.setDate(d.getDate() + delta);
-  setSelectedDate(d.toISOString().split('T')[0]);
+  var unit = (viewMode === 'daily') ? 'day' : compareScope;
+
+  if (unit === 'month') {
+    var selY = document.getElementById('selYear');
+    var y = +selY.value, m = +document.getElementById('selMonth').value + delta;
+    while (m < 1) { m += 12; y--; }
+    while (m > 12) { m -= 12; y++; }
+    var ok = Array.prototype.some.call(selY.options, function(o) { return +o.value === y; });
+    if (!ok) return;   // 年セレクタの範囲外へは移動しない
+    selY.value = y;
+    document.getElementById('selMonth').value = m;
+    populateDays();
+    render();
+    return;
+  }
+
+  if (unit === 'range') {
+    var rf = document.getElementById('rangeFrom'), rt = document.getElementById('rangeTo');
+    if (!rf.value || !rt.value) return;
+    var a = new Date(rf.value + 'T00:00:00'), b = new Date(rt.value + 'T00:00:00');
+    var span = Math.round((b - a) / 86400000) + 1;
+    a.setDate(a.getDate() + delta * span);
+    b.setDate(b.getDate() + delta * span);
+    rf.value = ymd(a); rt.value = ymd(b);
+    render();
+    return;
+  }
+
+  var d = new Date(getSelectedDate() + 'T00:00:00');
+  d.setDate(d.getDate() + (unit === 'week' ? 7 * delta : delta));
+  setSelectedDate(ymd(d));
   render();
 }
 
@@ -876,6 +1174,7 @@ function onDataLoaded(json, fromCache) {
   cats.forEach(function(c, i) {
     categoryColorMap[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
   });
+  populatePersonFilter();
   render();
 }
 
@@ -931,46 +1230,61 @@ function extractTime(raw) {
 }
 
 function setViewMode(mode) {
-  if (mode !== 'daily' && mode !== 'compare') mode = 'daily';
+  if (['daily','compare','ranking'].indexOf(mode) === -1) mode = 'daily';
   viewMode = mode;
   document.getElementById('tabDaily').classList.toggle('active', mode === 'daily');
   document.getElementById('tabCompare').classList.toggle('active', mode === 'compare');
-  document.body.classList.toggle('compare-mode', mode === 'compare');
+  document.getElementById('tabRanking').classList.toggle('active', mode === 'ranking');
+  // 集計単位タブは日報以外で有効
+  document.body.classList.toggle('has-scope', mode !== 'daily');
   updateDayVisibility();
   render();
 }
 
 function setCompareScope(scope) {
-  if (scope !== 'month' && scope !== 'day') scope = 'month';
+  if (['day','week','month','range'].indexOf(scope) === -1) scope = 'day';
   compareScope = scope;
-  document.getElementById('scopeMonth').classList.toggle('active', scope === 'month');
-  document.getElementById('scopeDay').classList.toggle('active', scope === 'day');
+  ['day','week','month','range'].forEach(function(k) {
+    var el = document.getElementById('scope' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (el) el.classList.toggle('active', k === scope);
+  });
+  document.body.classList.toggle('scope-range', scope === 'range');
+  // 期間モードに入ったとき、未入力なら選択中の月で初期化する
+  if (scope === 'range') {
+    var rf = document.getElementById('rangeFrom'), rt = document.getElementById('rangeTo');
+    if (!rf.value || !rt.value) {
+      var y = +document.getElementById('selYear').value;
+      var m = +document.getElementById('selMonth').value;
+      rf.value = y + '-' + pad2(m) + '-01';
+      rt.value = y + '-' + pad2(m) + '-' + pad2(new Date(y, m, 0).getDate());
+    }
+  }
   updateDayVisibility();
   render();
 }
 
-// 日セレクタの表示制御: 日報 or (予実比較 かつ 日集計) のときだけ表示
+// 日セレクタは「日付が意味を持つとき」だけ有効（日報 / 日集計 / 週集計）
 function updateDayVisibility() {
-  var showDay = (viewMode === 'daily') || (viewMode === 'compare' && compareScope === 'day');
+  var showDay = (viewMode === 'daily') || compareScope === 'day' || compareScope === 'week';
   document.body.classList.toggle('hide-day', !showDay);
 }
 
 function render() {
+  if (viewMode === 'ranking') { renderRanking(); return; }
   if (viewMode === 'compare') { renderCompare(); return; }
   renderDaily();
 }
 
 function renderDaily() {
   var dateStr = getSelectedDate();
-  var data = allData.filter(function(r) { return matchesDate(r, dateStr); });
+  var f = getFilters();
+  // 日報は常に「選択した1日」。集計単位タブは使わない
+  var data = allData.filter(function(r) { return matchesDate(r, dateStr) && passesFilter(r, f); });
   var main = document.getElementById('main');
+  setFilterInfo(data, formatDateJP(dateStr));
 
   if (data.length === 0) {
-    main.innerHTML = '<div class="no-data">' +
-      '<div class="icon">📋</div>' +
-      '<div>' + formatDateJP(dateStr) + ' のデータはありません</div>' +
-      '<div style="margin-top:8px;font-size:14px;color:var(--chalk-dim)">日付を変更してみてください</div>' +
-      '</div>';
+    main.innerHTML = emptyHtml('📋', formatDateJP(dateStr) + ' のデータはありません', f);
     return;
   }
 
@@ -985,22 +1299,7 @@ function renderDaily() {
 
   var html = '';
 
-  var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
-
-  var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
-    var ia = -1, ib = -1;
-    for (var i = 0; i < PERSON_ORDER.length; i++) {
-      if (a.indexOf(PERSON_ORDER[i]) !== -1) { ia = i; break; }
-    }
-    for (var i = 0; i < PERSON_ORDER.length; i++) {
-      if (b.indexOf(PERSON_ORDER[i]) !== -1) { ib = i; break; }
-    }
-    // Known people by defined order; unknown people after 谷, sorted by name
-    if (ia === -1 && ib === -1) return a.localeCompare(b, 'ja');
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib;
-  });
+  var sortedPeople = Object.keys(byPerson).sort(personCompare);
 
   sortedPeople.forEach(function(name, pIdx) {
     var info = byPerson[name];
@@ -1115,24 +1414,112 @@ function varianceClass(planned, actual) {
   return 'cmp-ontarget';
 }
 
-function renderCompare() {
-  var y = +document.getElementById('selYear').value;
-  var m = +document.getElementById('selMonth').value;
-  var isDay = (compareScope === 'day');
-  var dateStr = getSelectedDate();
-  var data = allData.filter(function(r) {
-    return isDay ? matchesDate(r, dateStr) : matchesMonth(r, y, m);
-  });
+// ===== 乖離ランキング: 期間内の全員を横断して、乖離の大きい順に並べる =====
+function renderRanking() {
+  var period = getPeriod();
+  var f = getFilters();
+  var data = allData.filter(function(r) { return inPeriod(r, period) && passesFilter(r, f); });
   var main = document.getElementById('main');
+  setFilterInfo(data, period.label);
 
   if (data.length === 0) {
-    var when = isDay ? formatDateJP(dateStr) : (y + '年' + m + '月');
-    main.innerHTML = '<div class="no-data">' +
-      '<div class="icon">📊</div>' +
-      '<div>' + when + ' の予実データはありません</div>' +
-      '<div style="margin-top:8px;font-size:14px;color:var(--chalk-dim)">' +
-      (isDay ? '日付' : '年月') + 'を変更してみてください</div>' +
+    main.innerHTML = emptyHtml('📊', period.label + ' の予実データはありません', f);
+    return;
+  }
+
+  // 担当者 × タスク で集約（同じタスクでも担当者が違えば別行）
+  var map = {};
+  data.forEach(function(r) {
+    var person = r.name || '(不明)';
+    var key = person + '\u0000' + (r.taskId || r.taskName || '(不明タスク)');
+    var t = map[key];
+    if (!t) {
+      t = map[key] = {
+        person: person,
+        taskName: r.taskName || '(名称なし)',
+        categoryName: r.categoryName || '(その他)',
+        planned: 0, actual: 0, hasPlan: false, count: 0,
+      };
+    }
+    t.planned += r.hours;
+    t.actual += r.actualHours;
+    if (r.hours > 0) t.hasPlan = true;
+    t.count++;
+  });
+
+  var list = Object.keys(map).map(function(k) { return map[k]; });
+  list.forEach(function(t) { t.diff = t.actual - t.planned; });
+  // 乖離の絶対値が大きい順
+  list.sort(function(a, b) { return Math.abs(b.diff) - Math.abs(a.diff); });
+
+  var overSum = 0, underSum = 0;
+  list.forEach(function(t) { if (t.diff > 0) overSum += t.diff; else underSum += t.diff; });
+
+  var LIMIT = 40;
+  var shown = list.slice(0, LIMIT);
+  var maxAbs = 0.001;
+  shown.forEach(function(t) { maxAbs = Math.max(maxAbs, Math.abs(t.diff)); });
+
+  var html = '<div class="compare-summary">' +
+    '<div><div class="val cmp-over">' + fmtSigned(overSum) + 'h</div>' +
+    '<div class="lbl">超過の合計 (' + fmtMinSigned(overSum) + '分)</div></div>' +
+    '<div><div class="val cmp-under">' + fmtSigned(underSum) + 'h</div>' +
+    '<div class="lbl">不足の合計 (' + fmtMinSigned(underSum) + '分)</div></div>' +
+    '<div><div class="val">' + list.length + '</div><div class="lbl">対象タスク</div></div>' +
+    '</div>';
+
+  html += '<div class="section-head">' +
+    '<span class="section-title">乖離ワースト</span>' +
+    '<span class="section-note">' + esc(period.label) + ' ・ 全員横断 ・ 乖離の大きい順' +
+    (list.length > LIMIT ? '（上位 ' + LIMIT + ' 件 / 全 ' + list.length + ' 件）' : '') +
+    '</span></div>';
+
+  shown.forEach(function(t, i) {
+    var cls = varianceClass(t.planned, t.actual);
+    var catColor = categoryColorMap[t.categoryName] || 'var(--chalk-dim)';
+    var barColor = cls === 'cmp-over' ? 'var(--over)' : cls === 'cmp-under' ? 'var(--under)' : 'var(--text-dim)';
+    var w = Math.min(100, Math.abs(t.diff) / maxAbs * 100);
+
+    var tag = '';
+    if (!t.hasPlan && t.actual > 0) tag = '<span class="cmp-tag">予定なし</span>';
+    else if (t.hasPlan && t.actual === 0) tag = '<span class="cmp-tag">実績なし</span>';
+
+    var rate = t.hasPlan
+      ? ' / ' + (t.diff >= 0 ? '+' : '−') + Math.abs(t.diff / t.planned * 100).toFixed(0) + '%'
+      : '';
+
+    html += '<div class="rank-row">' +
+      '<div class="rank-no">' + (i + 1) + '</div>' +
+      '<div class="rank-main">' +
+      '<div class="rank-task" title="' + esc(t.taskName) + '">' +
+      '<span class="category-dot" style="background:' + catColor + ';color:' + catColor +
+      ';display:inline-block;margin-right:6px"></span>' + esc(t.taskName) + ' ' + tag + '</div>' +
+      '<div class="rank-sub">' + esc(t.person) + ' ・ ' + esc(t.categoryName) + ' ・ ' + t.count + '件</div>' +
+      '</div>' +
+      '<div class="rank-bar"><i style="width:' + w.toFixed(1) + '%;background:' + barColor + '"></i></div>' +
+      '<div class="cmp-nums">' +
+      '<div class="cmp-num cmp-plan"><span class="n">' + hm(t.planned) + '</span><span class="l">予定</span></div>' +
+      '<div class="cmp-num cmp-actual"><span class="n">' + hm(t.actual) + '</span><span class="l">実績</span></div>' +
+      '</div>' +
+      '<div class="cmp-diff ' + cls + '">' + fmtSigned(t.diff) + 'h ' +
+      '<span class="min">(' + fmtMinSigned(t.diff) + '分' + rate + ')</span></div>' +
       '</div>';
+  });
+
+  main.innerHTML = html;
+}
+
+function renderCompare() {
+  var period = getPeriod();
+  var f = getFilters();
+  // 日集計のときだけ「合算せず1件ずつ」。週/月/期間はタスク単位で合算する
+  var isDay = (compareScope === 'day');
+  var data = allData.filter(function(r) { return inPeriod(r, period) && passesFilter(r, f); });
+  var main = document.getElementById('main');
+  setFilterInfo(data, period.label);
+
+  if (data.length === 0) {
+    main.innerHTML = emptyHtml('📊', period.label + ' の予実データはありません', f);
     return;
   }
 
@@ -1144,20 +1531,7 @@ function renderCompare() {
     byPerson[pName].rows.push(r);
   });
 
-  var PERSON_ORDER = ['秋永', '吉永', '山田', '須藤', '平山', '田村', '谷'];
-  var sortedPeople = Object.keys(byPerson).sort(function(a, b) {
-    var ia = -1, ib = -1;
-    for (var i = 0; i < PERSON_ORDER.length; i++) {
-      if (a.indexOf(PERSON_ORDER[i]) !== -1) { ia = i; break; }
-    }
-    for (var i = 0; i < PERSON_ORDER.length; i++) {
-      if (b.indexOf(PERSON_ORDER[i]) !== -1) { ib = i; break; }
-    }
-    if (ia === -1 && ib === -1) return a.localeCompare(b, 'ja');
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib;
-  });
+  var sortedPeople = Object.keys(byPerson).sort(personCompare);
 
   // 各人のエントリ一覧を作成: 月=タスク(taskId)で合算 / 日=合算せず個別
   var personEntries = {};
